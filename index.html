@@ -7,10 +7,20 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js">
 // ─── TUITION ────────────────────────────────────────────────────────────────
 async function saveTuition(id, val) {
-  const amount = parseFloat(val) || 0;
-  await db.collection('campers').doc(id).update({ tuition: amount });
   const c = allCampers.find(x => x.id === id);
-  if (c) c.tuition = amount;
+  if (val === 'voucher') {
+    await db.collection('campers').doc(id).update({ tuition: 'voucher', tuitionPaid: true });
+    if (c) { c.tuition = 'voucher'; c.tuitionPaid = true; }
+  } else if (val === 'clear' || val === '' || val == null) {
+    await db.collection('campers').doc(id).update({ tuition: firebase.firestore.FieldValue.delete(), tuitionPaid: false });
+    if (c) { delete c.tuition; c.tuitionPaid = false; }
+  } else {
+    const amount = parseFloat(String(val).replace(/[$,]/g,'')) || 0;
+    await db.collection('campers').doc(id).update({ tuition: amount });
+    if (c) c.tuition = amount;
+  }
+  renderRosterTable();
+  if (typeof renderRevenueReport === 'function') renderRevenueReport();
 }
 
 async function saveTuitionPaid(id, paid) {
@@ -22,8 +32,10 @@ async function saveTuitionPaid(id, paid) {
 
 // ─── REVENUE REPORT ─────────────────────────────────────────────────────────
 function renderRevenueReport() {
-  const totalExpected = allCampers.reduce((s,c) => s + (c.tuition||0), 0);
-  const totalPaid     = allCampers.filter(c => c.tuitionPaid).reduce((s,c) => s + (c.tuition||0), 0);
+  const voucherCount  = allCampers.filter(c => c.tuition === 'voucher').length;
+  const payingCampers = allCampers.filter(c => c.tuition != null && c.tuition !== 'voucher');
+  const totalExpected = payingCampers.reduce((s,c) => s + (Number(c.tuition)||0), 0);
+  const totalPaid     = payingCampers.filter(c => c.tuitionPaid).reduce((s,c) => s + (Number(c.tuition)||0), 0);
   const outstanding   = totalExpected - totalPaid;
   const pct = totalExpected > 0 ? Math.round(totalPaid / totalExpected * 100) : 0;
 
@@ -39,10 +51,10 @@ function renderRevenueReport() {
     const site  = c.site  || '—';
     const group = c.group || '—';
     const key   = site + '||' + group;
-    if (!map[key]) map[key] = { site, group, count:0, expected:0, paidCount:0, collected:0 };
+    if (!map[key]) map[key] = { site, group, count:0, expected:0, paidCount:0, collected:0, vouchers:0 };
     map[key].count++;
-    map[key].expected  += (c.tuition||0);
-    if (c.tuitionPaid) { map[key].paidCount++; map[key].collected += (c.tuition||0); }
+    if (c.tuition === 'voucher') { map[key].vouchers++; }
+    else { map[key].expected += (Number(c.tuition)||0); if (c.tuitionPaid) { map[key].paidCount++; map[key].collected += (Number(c.tuition)||0); } }
   });
 
   const rows = Object.values(map).sort((a,b) => a.site.localeCompare(b.site) || a.group.localeCompare(b.group));
@@ -52,7 +64,7 @@ function renderRevenueReport() {
   tbody.innerHTML = rows.map(r => `<tr>
     <td><span style="font-size:11px;font-weight:700;color:${siteColor(r.site)}">${esc(r.site)}</span></td>
     <td><span class="badge badge-blue">${esc(r.group)}</span></td>
-    <td style="text-align:right;">${r.count}</td>
+    <td style="text-align:right;">${r.count}${r.vouchers ? ` <span class="badge-voucher" style="font-size:10px;">+${r.vouchers}🎫</span>` : ''}</td>
     <td style="text-align:right;">$${r.expected.toFixed(2)}</td>
     <td style="text-align:right;">${r.paidCount}</td>
     <td style="text-align:right;color:#059669;">$${r.collected.toFixed(2)}</td>
@@ -60,9 +72,9 @@ function renderRevenueReport() {
   </tr>`).join('') +
   `<tr style="font-weight:700;background:#f8fafc;border-top:2px solid #e5e7eb;">
     <td colspan="2">Grand Total</td>
-    <td style="text-align:right;">${allCampers.length}</td>
+    <td style="text-align:right;">${allCampers.length}${voucherCount ? ` <span class="badge-voucher" style="font-size:10px;">+${voucherCount}🎫</span>` : ''}</td>
     <td style="text-align:right;">$${totalExpected.toFixed(2)}</td>
-    <td style="text-align:right;">${allCampers.filter(c=>c.tuitionPaid).length}</td>
+    <td style="text-align:right;">${payingCampers.filter(c=>c.tuitionPaid).length}</td>
     <td style="text-align:right;color:#059669;">$${totalPaid.toFixed(2)}</td>
     <td style="text-align:right;color:#dc2626;">$${outstanding.toFixed(2)}</td>
   </tr>`;
@@ -1061,7 +1073,7 @@ function renderAdminTable() {
     const msg = searchQuery
       ? `No camper found by the name "<strong>${esc(searchQuery)}</strong>". Please check the spelling.`
       : 'No campers found. Upload a roster first.';
-    tbody.innerHTML = `<tr class="empty-row"><td colspan="6">${msg}</td></tr>`; return;
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="7">${msg}</td></tr>`; return;
   }
   tbody.innerHTML = campers.map(c => {
     const r = attendanceData[c.id] || {};
@@ -1235,13 +1247,22 @@ function handleFile(file) {
 function normalizeRow(row) {
   const out = {};
   Object.keys(row).forEach(k => {
-    const lk = k.trim().toLowerCase();
-    if (['name','camper name','full name','student name','camper'].includes(lk)) out.name = String(row[k]).trim();
-    else if (['group','team','cabin','division','class'].includes(lk)) out.group = String(row[k]).trim();
-    else if (['site','location','school'].includes(lk)) out.site = String(row[k]).trim();
-    else if (['notes','note','comments'].includes(lk)) out.notes = String(row[k]).trim();
+    const lk = k.trim().toLowerCase().replace(/[^a-z0-9]/g,'');
+    if (['name','campername','fullname','studentname','camper','firstname'].includes(lk)) {
+      out.name = String(row[k]).trim();
+    } else if (['notes','note','comments'].includes(lk)) {
+      out.notes = String(row[k]).trim();
+    } else if (['tuition','tuitionfee','fee','amount','cost','tution','tutionfee','payment'].includes(lk)) {
+      const raw = String(row[k]).trim();
+      if (raw.toUpperCase() === 'VOUCHER') {
+        out.tuition = 'voucher';
+      } else {
+        const num = parseFloat(raw.replace(/[$,]/g, ''));
+        if (!isNaN(num)) out.tuition = num;
+      }
+    }
+    // Site & Group intentionally NOT read from CSV — use upload-form dropdowns
   });
-  if (!out.site && out.group) out.site = detectSite(out.group);
   return out;
 }
 
@@ -1251,11 +1272,15 @@ function previewRoster(data, filename) {
   pendingRows = rows;
   document.getElementById('preview-title').textContent = `${filename} — ${rows.length} campers found`;
   document.getElementById('preview-head').innerHTML =
-    '<tr>' + ['Name','Site','Group','Notes'].map(c => `<th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;">${c}</th>`).join('') + '</tr>';
+    '<tr>' + ['Name','Site','Group','Notes','Tuition'].map(c => `<th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;">${c}</th>`).join('') + '</tr>';
   const preview = rows.slice(0, 8);
-  document.getElementById('preview-body').innerHTML = preview.map(r =>
-    `<tr>${['name','site','group','notes'].map(c => `<td style="padding:7px 12px;border-top:1px solid #f1f5f9;">${esc(r[c]||'')}</td>`).join('')}</tr>`
-  ).join('') + (rows.length > 8 ? `<tr><td colspan="4" style="padding:8px 12px;color:#9ca3af;font-size:12px;">…and ${rows.length - 8} more</td></tr>` : '');
+  const defaultSiteVal  = document.getElementById('upload-site')?.value || '—';
+  const defaultGroupVal = document.getElementById('upload-group')?.value || '—';
+  document.getElementById('preview-body').innerHTML = preview.map(r => {
+    const td = (v,italic) => `<td style="padding:7px 12px;border-top:1px solid #f1f5f9;${italic?'color:#9ca3af;font-style:italic;':''}">${v}</td>`;
+    const tuitionDisp = r.tuition === 'voucher' ? '<span class="badge-voucher">🎫 Voucher</span>' : (r.tuition != null ? '$'+Number(r.tuition).toFixed(2) : '—');
+    return `<tr>${td(esc(r.name||''))}${td(esc(defaultSiteVal),true)}${td(esc(defaultGroupVal),true)}${td(esc(r.notes||'—'))}${td(tuitionDisp)}</tr>`;
+  }).join('') + (rows.length > 8 ? `<tr><td colspan="5" style="padding:8px 12px;color:#9ca3af;font-size:12px;">…and ${rows.length - 8} more</td></tr>` : '');
   document.getElementById('upload-zone').style.display = 'none';
   document.getElementById('upload-preview').style.display = 'block';
 }
@@ -1280,13 +1305,18 @@ async function confirmUpload() {
     for (const chunk of chunks) {
       const batch = db.batch();
       chunk.forEach(r => {
-        batch.set(db.collection('campers').doc(), {
+        const doc = {
           name:  r.name,
-          site:  r.site  || defaultSite  || '',
-          group: r.group || defaultGroup || '',
+          site:  defaultSite  || '',   // always from form, never from CSV
+          group: defaultGroup || '',   // always from form, never from CSV
           notes: r.notes || '',
           addedAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
+        };
+        if (r.tuition != null) {
+          doc.tuition = r.tuition;                    // number or 'voucher'
+          doc.tuitionPaid = r.tuition === 'voucher';  // vouchers auto-marked paid
+        }
+        batch.set(db.collection('campers').doc(), doc);
       });
       await batch.commit();
     }
@@ -1310,7 +1340,7 @@ function renderRosterTable() {
     const msg = rosterSearchQuery
       ? `No camper found by the name "<strong>${esc(rosterSearchQuery)}</strong>". Please check the spelling.`
       : 'No campers yet. Upload a roster above.';
-    tbody.innerHTML = `<tr class="empty-row"><td colspan="6">${msg}</td></tr>`; return;
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="7">${msg}</td></tr>`; return;
   }
   tbody.innerHTML = campers.map(c => `
     <tr class="${selectedRosterIds.has(c.id) ? 'row-selected' : ''}">
@@ -1319,6 +1349,17 @@ function renderRosterTable() {
       <td><span style="font-size:11px;font-weight:700;color:${siteColor(c.site)}">${esc(c.site||'—')}</span></td>
       <td><span class="badge badge-blue">${esc(c.group||'—')}</span></td>
       <td class="hide-mobile text-gray text-sm">${esc(c.notes||'—')}</td>
+      <td style="text-align:right;">
+        ${c.tuition === 'voucher'
+          ? `<span class="badge-voucher">🎫 Voucher</span>${userProfile?.role==='admin' ? `<br><button class="btn btn-sm" style="font-size:10px;margin-top:3px;padding:2px 6px;" onclick="saveTuition('${c.id}','clear')">✕</button>` : ''}`
+          : `<input type="number" class="tuition-input" value="${c.tuition!=null&&c.tuition!==''?c.tuition:''}" placeholder="$0"
+              onchange="saveTuition('${c.id}',this.value)"
+              ${userProfile?.role==='admin'?'':'disabled'}>
+            ${userProfile?.role==='admin'
+              ? `<br><label style="font-size:10px;cursor:pointer;color:#059669;"><input type="checkbox" ${c.tuitionPaid?'checked':''} onchange="saveTuitionPaid('${c.id}',this.checked)" style="width:11px;height:11px;"> Paid</label>`
+              : (c.tuitionPaid ? '<span class="pay-paid">✓ Paid</span>' : (c.tuition ? '<span class="pay-unpaid">Unpaid</span>' : ''))}`
+        }
+      </td>
       <td><button class="btn btn-red btn-sm" onclick="openRemoveModal('${c.id}','${esc(c.name)}')">Drop</button></td>
     </tr>
   `).join('');

@@ -154,6 +154,27 @@
     tr.subtotal-row td { background: #f0f4ff; font-weight: 700; }
     tr.subtotal-row:hover td { background: #e8eeff; }
 
+    /* Search bar */
+    .search-wrap { position: relative; flex: 1; min-width: 200px; }
+    .search-wrap::before { content: '🔍'; position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 13px; pointer-events: none; }
+    .search-wrap input { padding-left: 32px; }
+
+    /* Roster bulk action bar */
+    .bulk-bar { display: none; align-items: center; gap: 10px; padding: 10px 16px; background: #eff6ff; border: 1.5px solid #bfdbfe; border-radius: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+    .bulk-bar.show { display: flex; }
+    .bulk-count { font-size: 13px; font-weight: 700; color: #1e40af; }
+    tbody td.check-col { width: 40px; text-align: center; }
+    tbody td.check-col input[type=checkbox] { width: 16px; height: 16px; cursor: pointer; accent-color: #3b5bf5; }
+    tr.row-selected td { background: #eff6ff; }
+    thead th.check-col { width: 40px; text-align: center; }
+
+    /* Activity log in reports */
+    .activity-item { padding: 10px 14px; border-bottom: 1px solid #f1f5f9; display: flex; gap: 10px; align-items: flex-start; }
+    .activity-item:last-child { border-bottom: none; }
+    .activity-icon { font-size: 18px; flex-shrink: 0; margin-top: 2px; }
+    .activity-text { font-size: 13px; line-height: 1.5; }
+    .activity-meta { font-size: 11px; color: #9ca3af; margin-top: 2px; }
+
     @media (max-width: 900px) {
       .stats-4 { grid-template-columns: repeat(2, 1fr); }
       .stats-3 { grid-template-columns: repeat(3, 1fr); }
@@ -181,6 +202,32 @@
     <div style="display:flex;gap:8px;justify-content:flex-end;">
       <button class="btn btn-secondary btn-sm" onclick="closeRemoveModal()">Cancel</button>
       <button class="btn btn-red btn-sm" onclick="confirmRemove()">Remove Camper</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ MOVE GROUP MODAL ════════ -->
+<div id="move-modal" class="modal-overlay" onclick="if(event.target===this)closeMoveModal()">
+  <div class="modal-box">
+    <div class="modal-title">Move to Different Group</div>
+    <p id="move-modal-sub" class="modal-sub"></p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+      <div>
+        <label class="field-label">New Site</label>
+        <select id="move-site" class="input" onchange="updateLeaderGroupOpts('move-group','move-site')">
+          <option value="">Select site…</option>
+          <option value="PS 289">PS 289</option>
+          <option value="Canarsie">Canarsie</option>
+        </select>
+      </div>
+      <div>
+        <label class="field-label">New Group</label>
+        <select id="move-group" class="input"><option value="">Select site first…</option></select>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn btn-secondary btn-sm" onclick="closeMoveModal()">Cancel</button>
+      <button class="btn btn-primary btn-sm" onclick="confirmMove()">Move Campers</button>
     </div>
   </div>
 </div>
@@ -262,7 +309,10 @@
         <div class="stat-card"><div class="stat-num" id="l-paid" style="color:#3b5bf5;">0</div><div class="stat-label">Paid</div></div>
       </div>
 
-      <div style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;">
+      <div style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <div class="search-wrap" style="flex:1;min-width:180px;">
+          <input type="text" id="leader-search" class="input" placeholder="Search camper name…" oninput="leaderSearchQuery=this.value.trim();renderLeaderTable()">
+        </div>
         <button class="btn btn-green btn-sm" onclick="markAllLeader(true)">✓ Mark All Present</button>
         <button class="btn btn-secondary btn-sm" onclick="markAllLeader(false)">✗ Clear Attendance</button>
       </div>
@@ -300,9 +350,12 @@
           <div id="group-pills" class="flex flex-wrap gap-8"></div>
         </div>
 
-        <div class="flex flex-wrap gap-12 items-center" style="margin-bottom:16px;">
+        <div class="flex flex-wrap gap-12 items-center" style="margin-bottom:12px;">
           <input type="date" id="admin-date-picker" class="input" style="width:auto;">
-          <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;">
+          <div class="search-wrap">
+            <input type="text" id="admin-search" class="input" placeholder="Search camper name…" oninput="searchQuery=this.value.trim();renderAdminTable()">
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-left:auto;">
             <button class="btn btn-green btn-sm" onclick="markAll(true)">✓ All Present</button>
             <button class="btn btn-secondary btn-sm" onclick="markAll(false)">✗ Clear</button>
             <button class="btn btn-outline btn-sm" onclick="exportTodayCSV()">⬇ Export CSV</button>
@@ -389,13 +442,26 @@
           </div>
         </div>
 
+        <!-- Roster search + bulk bar -->
+        <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center;">
+          <div class="search-wrap" style="flex:1;">
+            <input type="text" id="roster-search" class="input" placeholder="Search camper name…" oninput="rosterSearchQuery=this.value.trim();renderRosterTable()">
+          </div>
+        </div>
+        <div class="bulk-bar" id="bulk-bar">
+          <span class="bulk-count" id="bulk-count-label">0 selected</span>
+          <button class="btn btn-red btn-sm" onclick="bulkDrop()">🚫 Drop Selected</button>
+          <button class="btn btn-primary btn-sm" onclick="openMoveModal()">↗ Move to Group</button>
+          <button class="btn btn-secondary btn-sm" onclick="clearRosterSelection()" style="margin-left:auto;">✕ Deselect All</button>
+        </div>
+
         <div class="table-wrap">
           <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;background:#fff;border-bottom:1px solid #e5e7eb;flex-wrap:wrap;gap:8px;">
             <span style="font-weight:700;">Roster (<span id="roster-count">0</span> campers)</span>
             <button class="btn btn-red btn-sm" onclick="clearRoster()">Clear All</button>
           </div>
           <table>
-            <thead><tr><th>Name</th><th>Site</th><th>Group</th><th class="hide-mobile">Notes</th><th style="width:110px;"></th></tr></thead>
+            <thead><tr><th class="check-col"><input type="checkbox" id="select-all-roster" onclick="toggleSelectAll(this.checked)" title="Select all"></th><th>Name</th><th>Site</th><th>Group</th><th class="hide-mobile">Notes</th><th style="width:90px;"></th></tr></thead>
             <tbody id="roster-tbody"></tbody>
           </table>
         </div>
@@ -471,6 +537,7 @@
           <button class="report-tab" id="rtab-weekly" onclick="switchReportTab('weekly')">📆 Weekly</button>
           <button class="report-tab" id="rtab-monthly" onclick="switchReportTab('monthly')">🗓 Monthly</button>
           <button class="report-tab" id="rtab-export" onclick="switchReportTab('export')">⬇ Export</button>
+          <button class="report-tab" id="rtab-activity" onclick="switchReportTab('activity')">📋 Activity Log</button>
         </div>
 
         <!-- Daily -->
@@ -529,6 +596,24 @@
           </div>
         </div>
 
+        <!-- Activity Log -->
+        <div id="report-activity" style="display:none;">
+          <div class="stats stats-4" style="margin-bottom:20px;">
+            <div class="stat-card"><div class="stat-num" id="act-total">0</div><div class="stat-label">Total Campers</div></div>
+            <div class="stat-card"><div class="stat-num" id="act-active" style="color:#059669;">0</div><div class="stat-label">Active</div></div>
+            <div class="stat-card"><div class="stat-num" id="act-dropped" style="color:#dc2626;">0</div><div class="stat-label">Dropped</div></div>
+            <div class="stat-card"><div class="stat-num" id="act-transferred" style="color:#7c3aed;">0</div><div class="stat-label">Transferred</div></div>
+          </div>
+          <div class="card" style="margin-bottom:16px;padding:0;">
+            <div style="padding:14px 18px;border-bottom:1px solid #e5e7eb;font-weight:700;font-size:14px;">🚫 Dropped Campers</div>
+            <div id="act-drops-list"><div class="activity-item"><span class="activity-icon">ℹ️</span><span class="activity-text text-gray">No dropped campers.</span></div></div>
+          </div>
+          <div class="card" style="padding:0;">
+            <div style="padding:14px 18px;border-bottom:1px solid #e5e7eb;font-weight:700;font-size:14px;">↗ Group Transfers</div>
+            <div id="act-transfers-list"><div class="activity-item"><span class="activity-icon">ℹ️</span><span class="activity-text text-gray">No group transfers yet.</span></div></div>
+          </div>
+        </div>
+
         <!-- Export -->
         <div id="report-export" style="display:none;">
           <div class="card">
@@ -580,6 +665,11 @@ let currentUser = null, userProfile = null;
 let allCampers = [], removedCampers = [], attendanceData = {}, allUsers = [];
 let selectedDate = todayStr();
 let pendingRemoveId = null;
+let pendingRemoveIds = [];
+let searchQuery = '';
+let leaderSearchQuery = '';
+let rosterSearchQuery = '';
+let selectedRosterIds = new Set();
 let selectedSite = 'all';
 let selectedGroup = 'all';
 let lastReportRows = [];
@@ -848,10 +938,17 @@ function visibleCampers() {
 
 // ─── ADMIN TABLE ─────────────────────────────
 function renderAdminTable() {
-  const campers = visibleCampers();
+  let campers = visibleCampers();
+  if (searchQuery) {
+    const q = searchQuery.toLowerCase();
+    campers = campers.filter(c => c.name.toLowerCase().includes(q));
+  }
   const tbody = document.getElementById('admin-tbody');
   if (!campers.length) {
-    tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No campers found. Upload a roster first.</td></tr>'; return;
+    const msg = searchQuery
+      ? `No camper found by the name "<strong>${esc(searchQuery)}</strong>". Please check the spelling.`
+      : 'No campers found. Upload a roster first.';
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="6">${msg}</td></tr>`; return;
   }
   tbody.innerHTML = campers.map(c => {
     const r = attendanceData[c.id] || {};
@@ -935,10 +1032,17 @@ function getLeaderCampers() {
 }
 
 function renderLeaderTable() {
-  const campers = getLeaderCampers();
+  let campers = getLeaderCampers();
+  if (leaderSearchQuery) {
+    const q = leaderSearchQuery.toLowerCase();
+    campers = campers.filter(c => c.name.toLowerCase().includes(q));
+  }
   const tbody = document.getElementById('leader-tbody');
   if (!campers.length) {
-    tbody.innerHTML = '<tr class="empty-row"><td colspan="4">No campers in your group yet.</td></tr>'; return;
+    const msg = leaderSearchQuery
+      ? `No camper found by the name "<strong>${esc(leaderSearchQuery)}</strong>". Please check the spelling.`
+      : 'No campers in your group yet.';
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="4">${msg}</td></tr>`; return;
   }
   tbody.innerHTML = campers.map(c => {
     const r = attendanceData[c.id] || {};
@@ -1075,12 +1179,21 @@ async function confirmUpload() {
 
 function renderRosterTable() {
   document.getElementById('roster-count').textContent = allCampers.length;
-  const tbody = document.getElementById('roster-tbody');
-  if (!allCampers.length) {
-    tbody.innerHTML = '<tr class="empty-row"><td colspan="5">No campers yet. Upload a roster above.</td></tr>'; return;
+  let campers = [...allCampers];
+  if (rosterSearchQuery) {
+    const q = rosterSearchQuery.toLowerCase();
+    campers = campers.filter(c => c.name.toLowerCase().includes(q));
   }
-  tbody.innerHTML = allCampers.map(c => `
-    <tr>
+  const tbody = document.getElementById('roster-tbody');
+  if (!campers.length) {
+    const msg = rosterSearchQuery
+      ? `No camper found by the name "<strong>${esc(rosterSearchQuery)}</strong>". Please check the spelling.`
+      : 'No campers yet. Upload a roster above.';
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="6">${msg}</td></tr>`; return;
+  }
+  tbody.innerHTML = campers.map(c => `
+    <tr class="${selectedRosterIds.has(c.id) ? 'row-selected' : ''}">
+      <td class="check-col"><input type="checkbox" ${selectedRosterIds.has(c.id) ? 'checked' : ''} onclick="toggleRosterSelect('${c.id}',this.checked)"></td>
       <td class="camper-name">${esc(c.name)}</td>
       <td><span style="font-size:11px;font-weight:700;color:${siteColor(c.site)}">${esc(c.site||'—')}</span></td>
       <td><span class="badge badge-blue">${esc(c.group||'—')}</span></td>
@@ -1088,6 +1201,8 @@ function renderRosterTable() {
       <td><button class="btn btn-red btn-sm" onclick="openRemoveModal('${c.id}','${esc(c.name)}')">Drop</button></td>
     </tr>
   `).join('');
+  const allChk = document.getElementById('select-all-roster');
+  if (allChk) allChk.checked = campers.length > 0 && campers.every(c => selectedRosterIds.has(c.id));
 }
 
 function renderDroppedTable() {
@@ -1118,9 +1233,121 @@ function switchRosterSub(sub) {
   if (sub === 'dropped') renderDroppedTable();
 }
 
+// ─── ROSTER MULTI-SELECT ─────────────────────
+function toggleSelectAll(checked) {
+  let campers = [...allCampers];
+  if (rosterSearchQuery) {
+    const q = rosterSearchQuery.toLowerCase();
+    campers = campers.filter(c => c.name.toLowerCase().includes(q));
+  }
+  if (checked) campers.forEach(c => selectedRosterIds.add(c.id));
+  else selectedRosterIds.clear();
+  updateBulkBar();
+  renderRosterTable();
+}
+
+function toggleRosterSelect(id, checked) {
+  if (checked) selectedRosterIds.add(id);
+  else selectedRosterIds.delete(id);
+  updateBulkBar();
+  // update row highlight without full re-render
+  const allChk = document.getElementById('select-all-roster');
+  if (allChk) {
+    let campers = [...allCampers];
+    if (rosterSearchQuery) { const q = rosterSearchQuery.toLowerCase(); campers = campers.filter(c => c.name.toLowerCase().includes(q)); }
+    allChk.checked = campers.length > 0 && campers.every(c => selectedRosterIds.has(c.id));
+  }
+}
+
+function updateBulkBar() {
+  const bar = document.getElementById('bulk-bar');
+  const lbl = document.getElementById('bulk-count-label');
+  if (!bar) return;
+  const n = selectedRosterIds.size;
+  if (n > 0) {
+    bar.style.display = 'flex';
+    lbl.textContent = `${n} selected`;
+  } else {
+    bar.style.display = 'none';
+  }
+}
+
+function clearRosterSelection() {
+  selectedRosterIds.clear();
+  updateBulkBar();
+  renderRosterTable();
+}
+
+function bulkDrop() {
+  if (!selectedRosterIds.size) return;
+  const ids = [...selectedRosterIds];
+  pendingRemoveId = ids[0];
+  pendingRemoveIds = ids;
+  const names = ids.map(id => allCampers.find(c => c.id === id)?.name || '').filter(Boolean);
+  const label = names.length === 1 ? names[0] : `${names.length} campers`;
+  document.getElementById('remove-modal-name').textContent = `Dropping: ${label}`;
+  document.getElementById('remove-reason').value = '';
+  document.getElementById('remove-modal').classList.add('show');
+  setTimeout(() => document.getElementById('remove-reason').focus(), 50);
+}
+
+function openMoveModal() {
+  if (!selectedRosterIds.size) return;
+  const n = selectedRosterIds.size;
+  document.getElementById('move-modal-sub').textContent = `Moving ${n} camper${n > 1 ? 's' : ''} to a new group`;
+  document.getElementById('move-site').value = '';
+  document.getElementById('move-group').innerHTML = '<option value="">Select site first…</option>';
+  document.getElementById('move-modal').classList.add('show');
+}
+
+function closeMoveModal() {
+  document.getElementById('move-modal').classList.remove('show');
+}
+
+async function confirmMove() {
+  const newSite = document.getElementById('move-site').value;
+  const newGroup = document.getElementById('move-group').value;
+  if (!newSite || !newGroup) { toast('Please select a site and group'); return; }
+  const ids = [...selectedRosterIds];
+  const batch = db.batch();
+  const now = firebase.firestore.FieldValue.serverTimestamp();
+  ids.forEach(id => {
+    batch.update(db.collection('campers').doc(id), { site: newSite, group: newGroup });
+  });
+  await batch.commit();
+  // Log transfers
+  const logBatch = db.batch();
+  ids.forEach(id => {
+    const camper = allCampers.find(c => c.id === id);
+    logBatch.set(db.collection('activity_log').doc(), {
+      type: 'transfer',
+      camperId: id,
+      camperName: camper?.name || '',
+      fromSite: camper?.site || '',
+      fromGroup: camper?.group || '',
+      toSite: newSite,
+      toGroup: newGroup,
+      by: currentUser.uid,
+      at: now
+    });
+  });
+  await logBatch.commit();
+  // Update local state
+  ids.forEach(id => {
+    const camper = allCampers.find(c => c.id === id);
+    if (camper) { camper.site = newSite; camper.group = newGroup; }
+  });
+  closeMoveModal();
+  selectedRosterIds.clear();
+  updateBulkBar();
+  renderRosterTable(); renderSitePills(); renderGroupPills(); renderAdminTable();
+  toast(`✓ ${ids.length} camper${ids.length > 1 ? 's' : ''} moved to ${newGroup}`);
+}
+
 // ─── REMOVE / RESTORE CAMPER ─────────────────
 function openRemoveModal(id, name) {
   pendingRemoveId = id;
+  pendingRemoveIds = [];
   document.getElementById('remove-modal-name').textContent = `Dropping: ${name}`;
   document.getElementById('remove-reason').value = '';
   document.getElementById('remove-modal').classList.add('show');
@@ -1129,29 +1356,56 @@ function openRemoveModal(id, name) {
 
 function closeRemoveModal() {
   pendingRemoveId = null;
+  pendingRemoveIds = [];
   document.getElementById('remove-modal').classList.remove('show');
 }
 
 async function confirmRemove() {
   if (!pendingRemoveId) return;
   const reason = document.getElementById('remove-reason').value.trim();
-  const id = pendingRemoveId;
+  const ids = pendingRemoveIds && pendingRemoveIds.length ? [...pendingRemoveIds] : [pendingRemoveId];
   closeRemoveModal();
-  await db.collection('campers').doc(id).update({
-    removed: true,
-    removedReason: reason || '',
-    removedAt: firebase.firestore.FieldValue.serverTimestamp(),
-    removedBy: currentUser.uid
+  const batch = db.batch();
+  const now = firebase.firestore.FieldValue.serverTimestamp();
+  ids.forEach(id => {
+    batch.update(db.collection('campers').doc(id), {
+      removed: true,
+      removedReason: reason || '',
+      removedAt: now,
+      removedBy: currentUser.uid
+    });
   });
-  const camper = allCampers.find(c => c.id === id);
-  if (camper) {
-    camper.removed = true; camper.removedReason = reason;
-    removedCampers.push(camper);
-    allCampers = allCampers.filter(c => c.id !== id);
-  }
+  await batch.commit();
+  // Log each drop to activity_log
+  const logBatch = db.batch();
+  ids.forEach(id => {
+    const camper = allCampers.find(c => c.id === id);
+    logBatch.set(db.collection('activity_log').doc(), {
+      type: 'drop',
+      camperId: id,
+      camperName: camper?.name || '',
+      fromSite: camper?.site || '',
+      fromGroup: camper?.group || '',
+      reason: reason || '',
+      by: currentUser.uid,
+      at: now
+    });
+  });
+  await logBatch.commit();
+  // Update local state
+  ids.forEach(id => {
+    const camper = allCampers.find(c => c.id === id);
+    if (camper) {
+      camper.removed = true; camper.removedReason = reason;
+      removedCampers.push(camper);
+    }
+  });
+  allCampers = allCampers.filter(c => !ids.includes(c.id));
+  selectedRosterIds.clear();
+  updateBulkBar();
   renderRosterTable(); renderDroppedTable();
   renderSitePills(); renderGroupPills(); renderAdminTable();
-  toast(`🚫 ${camper?.name || 'Camper'} dropped from roster`);
+  toast(`🚫 ${ids.length === 1 ? (allCampers.find(c=>c.id===ids[0])?.name || removedCampers.find(c=>c.id===ids[0])?.name || 'Camper') : ids.length + ' campers'} dropped from roster`);
 }
 
 async function restoreCamper(id) {
@@ -1273,11 +1527,62 @@ let activeReportTab = 'daily';
 
 function switchReportTab(tab) {
   activeReportTab = tab;
-  ['daily','weekly','monthly','export'].forEach(t => {
-    document.getElementById(`report-${t}`).style.display = t === tab ? '' : 'none';
-    document.getElementById(`rtab-${t}`).classList.toggle('active', t === tab);
+  ['daily','weekly','monthly','export','activity'].forEach(t => {
+    const el = document.getElementById(`report-${t}`);
+    if (el) el.style.display = t === tab ? '' : 'none';
+    const btn = document.getElementById(`rtab-${t}`);
+    if (btn) btn.classList.toggle('active', t === tab);
   });
   if (tab === 'daily') loadDailyReport();
+  if (tab === 'activity') loadActivityReport();
+}
+
+async function loadActivityReport() {
+  // Stats
+  const total = allCampers.length + removedCampers.length;
+  const active = allCampers.length;
+  const dropped = removedCampers.length;
+
+  // Fetch transfers from activity_log
+  const snap = await db.collection('activity_log').orderBy('at', 'desc').get();
+  const logs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const transfers = logs.filter(l => l.type === 'transfer');
+
+  document.getElementById('act-total').textContent = total;
+  document.getElementById('act-active').textContent = active;
+  document.getElementById('act-dropped').textContent = dropped;
+  document.getElementById('act-transferred').textContent = transfers.length;
+
+  // Drops list
+  const dropsList = document.getElementById('act-drops-list');
+  if (!removedCampers.length) {
+    dropsList.innerHTML = '<div style="padding:14px 18px;color:#9ca3af;font-size:13px;">No dropped campers.</div>';
+  } else {
+    dropsList.innerHTML = removedCampers.map(c => {
+      const dateStr = c.removedAt?.toDate ? c.removedAt.toDate().toLocaleDateString() : '—';
+      return `<div style="display:flex;align-items:center;gap:10px;padding:10px 18px;border-top:1px solid #f1f5f9;">
+        <span style="flex:1;font-weight:600;font-size:13px;">${esc(c.name)}</span>
+        <span style="font-size:12px;color:${siteColor(c.site)};font-weight:700;">${esc(c.group||'—')}</span>
+        <span style="font-size:11px;color:#9ca3af;min-width:70px;">${dateStr}</span>
+        <span style="font-size:12px;color:#6b7280;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(c.removedReason||'No reason given')}</span>
+      </div>`;
+    }).join('');
+  }
+
+  // Transfers list
+  const xferList = document.getElementById('act-transfers-list');
+  if (!transfers.length) {
+    xferList.innerHTML = '<div style="padding:14px 18px;color:#9ca3af;font-size:13px;">No group transfers yet.</div>';
+  } else {
+    xferList.innerHTML = transfers.map(t => {
+      const dateStr = t.at?.toDate ? t.at.toDate().toLocaleDateString() : '—';
+      return `<div style="display:flex;align-items:center;gap:10px;padding:10px 18px;border-top:1px solid #f1f5f9;">
+        <span style="flex:1;font-weight:600;font-size:13px;">${esc(t.camperName||'—')}</span>
+        <span style="font-size:12px;color:#6b7280;">${esc(t.fromGroup||'—')} → ${esc(t.toGroup||'—')}</span>
+        <span style="font-size:11px;color:#9ca3af;min-width:70px;">${dateStr}</span>
+      </div>`;
+    }).join('');
+  }
 }
 
 async function loadDailyReport() {

@@ -46,6 +46,28 @@
     .toggle input:checked ~ .toggle-track { background: #059669; }
     .toggle input:checked ~ .toggle-thumb { transform: translateX(18px); }
     .toggle.blue input:checked ~ .toggle-track { background: #3b5bf5; }
+    /* Present toggle: red when absent, green when present */
+    .toggle-present .toggle-track { background: #fca5a5; }
+    .toggle-present input:checked ~ .toggle-track { background: #059669; }
+
+    /* Remove-reason modal */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 200; display: none; align-items: center; justify-content: center; }
+    .modal-overlay.show { display: flex; }
+    .modal-box { background: #fff; border-radius: 14px; padding: 28px; max-width: 440px; width: 90%; box-shadow: 0 20px 60px rgba(0,0,0,.3); }
+    .modal-title { font-size: 17px; font-weight: 800; margin-bottom: 8px; }
+    .modal-sub { font-size: 13px; color: #6b7280; margin-bottom: 16px; }
+
+    /* Roster sub-tabs */
+    .roster-subtabs { display: flex; gap: 4px; margin-bottom: 16px; }
+    .roster-subtab { padding: 6px 14px; border-radius: 8px; border: none; background: none; font-size: 13px; font-weight: 600; color: #6b7280; cursor: pointer; }
+    .roster-subtab:hover { background: #f3f4f6; color: #374151; }
+    .roster-subtab.active { background: #eff2ff; color: #3b5bf5; }
+
+    /* Notes save button */
+    .notes-wrap { display: flex; gap: 4px; align-items: center; }
+    .notes-save-btn { padding: 4px 9px; font-size: 11px; font-weight: 700; border-radius: 6px; border: 1.5px solid #bbf7d0; background: #f0fdf4; color: #059669; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
+    .notes-save-btn:hover { background: #dcfce7; }
+    .notes-save-btn.saved { background: #059669; color: #fff; border-color: #059669; }
 
     .header { background: #fff; border-bottom: 1px solid #e5e7eb; height: 60px; display: flex; align-items: center; padding: 0 24px; gap: 12px; position: sticky; top: 0; z-index: 50; }
     .logo { font-weight: 800; font-size: 16px; color: #111827; white-space: nowrap; }
@@ -148,6 +170,20 @@
 <body>
 
 <div id="toast"></div>
+
+<!-- ════════ REMOVE CAMPER MODAL ════════ -->
+<div id="remove-modal" class="modal-overlay" onclick="if(event.target===this)closeRemoveModal()">
+  <div class="modal-box">
+    <div class="modal-title">Remove Camper</div>
+    <p class="modal-sub" id="remove-modal-name"></p>
+    <label class="field-label">Reason for removal</label>
+    <textarea id="remove-reason" class="input" rows="3" placeholder="e.g. Moved away, withdrawn, health reasons…" style="resize:vertical;margin-bottom:16px;"></textarea>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn btn-secondary btn-sm" onclick="closeRemoveModal()">Cancel</button>
+      <button class="btn btn-red btn-sm" onclick="confirmRemove()">Remove Camper</button>
+    </div>
+  </div>
+</div>
 
 <!-- ════════ CONFIG (hidden — hardcoded) ════════ -->
 <div id="config-screen" class="screen hidden"></div>
@@ -299,6 +335,13 @@
 
       <!-- ── ROSTER TAB ── -->
       <div id="tab-roster" style="display:none;">
+        <div class="roster-subtabs">
+          <button class="roster-subtab active" id="rsub-active" onclick="switchRosterSub('active')">👥 Active Campers</button>
+          <button class="roster-subtab" id="rsub-dropped" onclick="switchRosterSub('dropped')">🚫 Dropped / Removed</button>
+        </div>
+
+        <!-- Active sub-tab -->
+        <div id="roster-sub-active">
         <div class="card mb-16" style="margin-bottom:20px;">
           <div class="section-title">Upload Roster</div>
           <p class="text-gray text-sm" style="margin-bottom:16px;">
@@ -352,10 +395,25 @@
             <button class="btn btn-red btn-sm" onclick="clearRoster()">Clear All</button>
           </div>
           <table>
-            <thead><tr><th>Name</th><th>Site</th><th>Group</th><th class="hide-mobile">Notes</th><th style="width:80px;"></th></tr></thead>
+            <thead><tr><th>Name</th><th>Site</th><th>Group</th><th class="hide-mobile">Notes</th><th style="width:110px;"></th></tr></thead>
             <tbody id="roster-tbody"></tbody>
           </table>
         </div>
+        </div><!-- /roster-sub-active -->
+
+        <!-- Dropped sub-tab -->
+        <div id="roster-sub-dropped" style="display:none;">
+          <div class="table-wrap">
+            <div style="padding:14px 18px;background:#fff;border-bottom:1px solid #e5e7eb;">
+              <p style="font-weight:700;">Dropped / Removed (<span id="dropped-count">0</span>)</p>
+              <p class="text-gray text-sm">Campers removed from the active roster. You can restore them if needed.</p>
+            </div>
+            <table>
+              <thead><tr><th>Name</th><th>Site</th><th>Group</th><th>Removed On</th><th>Reason</th><th style="width:90px;"></th></tr></thead>
+              <tbody id="dropped-tbody"></tbody>
+            </table>
+          </div>
+        </div><!-- /roster-sub-dropped -->
       </div>
 
       <!-- ── LEADERS TAB ── -->
@@ -519,8 +577,9 @@ const FIREBASE_CONFIG = {
 // ─── STATE ───────────────────────────────────
 let db, auth, secondaryApp;
 let currentUser = null, userProfile = null;
-let allCampers = [], attendanceData = {}, allUsers = [];
+let allCampers = [], removedCampers = [], attendanceData = {}, allUsers = [];
 let selectedDate = todayStr();
+let pendingRemoveId = null;
 let selectedSite = 'all';
 let selectedGroup = 'all';
 let lastReportRows = [];
@@ -707,11 +766,13 @@ async function fetchUserProfile(uid) {
 
 async function fetchCampers() {
   const snap = await db.collection('campers').orderBy('name').get();
-  allCampers = snap.docs.map(d => {
+  const all = snap.docs.map(d => {
     const data = d.data();
     if (!data.site && data.group) data.site = detectSite(data.group); // backward compat
     return { id: d.id, ...data };
   });
+  allCampers    = all.filter(c => !c.removed);
+  removedCampers = all.filter(c => c.removed);
 }
 
 async function fetchUsers() {
@@ -800,21 +861,23 @@ function renderAdminTable() {
       <td class="hide-mobile">${siteCol}</td>
       <td class="hide-mobile"><span class="badge badge-blue">${esc(c.group||'—')}</span></td>
       <td style="text-align:center;">
-        <label class="toggle">
+        <label class="toggle toggle-present" title="${r.present?'Present':'Absent'}">
           <input type="checkbox" ${r.present?'checked':''} onchange="saveRecord('${c.id}','present',this.checked)">
           <span class="toggle-track"></span><span class="toggle-thumb"></span>
         </label>
       </td>
       <td style="text-align:center;">
-        <label class="toggle blue">
+        <label class="toggle blue" title="${r.paid?'Paid':'Not Paid'}">
           <input type="checkbox" ${r.paid?'checked':''} onchange="saveRecord('${c.id}','paid',this.checked)">
           <span class="toggle-track"></span><span class="toggle-thumb"></span>
         </label>
       </td>
       <td class="notes-cell">
-        <input value="${esc(r.notes||'')}" placeholder="Notes…"
-          onblur="saveRecord('${c.id}','notes',this.value)"
-          onkeydown="if(event.key==='Enter')this.blur()">
+        <div class="notes-wrap">
+          <input id="anote-${c.id}" value="${esc(r.notes||'')}" placeholder="Notes…"
+            onkeydown="if(event.key==='Enter'){saveNotes('${c.id}',this.value,this.nextElementSibling);this.blur()}">
+          <button class="notes-save-btn" onclick="saveNotes('${c.id}',document.getElementById('anote-${c.id}').value,this)">Save</button>
+        </div>
       </td>
     </tr>`;
   }).join('');
@@ -856,6 +919,16 @@ async function saveRecord(camperId, field, value) {
   } catch(e) { toast('⚠ Save failed: ' + e.message); }
 }
 
+// ─── SAVE NOTES (with button feedback) ───────
+async function saveNotes(camperId, value, btn) {
+  await saveRecord(camperId, 'notes', value);
+  if (btn) {
+    btn.textContent = '✓ Saved';
+    btn.classList.add('saved');
+    setTimeout(() => { btn.textContent = 'Save'; btn.classList.remove('saved'); }, 1800);
+  }
+}
+
 // ─── LEADER TABLE ────────────────────────────
 function getLeaderCampers() {
   return allCampers.filter(c => c.site === userProfile?.site && c.group === userProfile?.group);
@@ -872,21 +945,23 @@ function renderLeaderTable() {
     return `<tr>
       <td class="camper-name">${esc(c.name)}</td>
       <td style="text-align:center;">
-        <label class="toggle">
+        <label class="toggle toggle-present" title="${r.present?'Present':'Absent'}">
           <input type="checkbox" ${r.present?'checked':''} onchange="saveRecord('${c.id}','present',this.checked);renderLeaderTable()">
           <span class="toggle-track"></span><span class="toggle-thumb"></span>
         </label>
       </td>
       <td style="text-align:center;">
-        <label class="toggle blue">
+        <label class="toggle blue" title="${r.paid?'Paid':'Not Paid'}">
           <input type="checkbox" ${r.paid?'checked':''} onchange="saveRecord('${c.id}','paid',this.checked);renderLeaderTable()">
           <span class="toggle-track"></span><span class="toggle-thumb"></span>
         </label>
       </td>
       <td class="notes-cell">
-        <input value="${esc(r.notes||'')}" placeholder="Notes…"
-          onblur="saveRecord('${c.id}','notes',this.value)"
-          onkeydown="if(event.key==='Enter')this.blur()">
+        <div class="notes-wrap">
+          <input id="lnote-${c.id}" value="${esc(r.notes||'')}" placeholder="Notes…"
+            onkeydown="if(event.key==='Enter'){saveNotes('${c.id}',this.value,this.nextElementSibling);this.blur()}">
+          <button class="notes-save-btn" onclick="saveNotes('${c.id}',document.getElementById('lnote-${c.id}').value,this)">Save</button>
+        </div>
       </td>
     </tr>`;
   }).join('');
@@ -1010,31 +1085,109 @@ function renderRosterTable() {
       <td><span style="font-size:11px;font-weight:700;color:${siteColor(c.site)}">${esc(c.site||'—')}</span></td>
       <td><span class="badge badge-blue">${esc(c.group||'—')}</span></td>
       <td class="hide-mobile text-gray text-sm">${esc(c.notes||'—')}</td>
-      <td><button class="btn btn-red btn-sm" onclick="deleteCamper('${c.id}')">Remove</button></td>
+      <td><button class="btn btn-red btn-sm" onclick="openRemoveModal('${c.id}','${esc(c.name)}')">Drop</button></td>
     </tr>
   `).join('');
 }
 
-async function deleteCamper(id) {
-  if (!confirm('Remove this camper from the roster?')) return;
-  await db.collection('campers').doc(id).delete();
-  allCampers = allCampers.filter(c => c.id !== id);
-  renderRosterTable(); renderSitePills(); renderGroupPills(); renderAdminTable();
-  toast('Camper removed');
+function renderDroppedTable() {
+  document.getElementById('dropped-count').textContent = removedCampers.length;
+  const tbody = document.getElementById('dropped-tbody');
+  if (!removedCampers.length) {
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No dropped campers yet.</td></tr>'; return;
+  }
+  tbody.innerHTML = removedCampers.map(c => {
+    const removedOn = c.removedAt?.toDate ? formatDate(c.removedAt.toDate().toISOString().split('T')[0]) : '—';
+    return `<tr>
+      <td class="camper-name">${esc(c.name)}</td>
+      <td><span style="font-size:11px;font-weight:700;color:${siteColor(c.site)}">${esc(c.site||'—')}</span></td>
+      <td><span class="badge badge-gray">${esc(c.group||'—')}</span></td>
+      <td class="text-sm text-gray">${removedOn}</td>
+      <td class="text-sm text-gray">${esc(c.removedReason||'—')}</td>
+      <td><button class="btn btn-green btn-sm" onclick="restoreCamper('${c.id}')">Restore</button></td>
+    </tr>`;
+  }).join('');
+}
+
+// ─── ROSTER SUB-TABS ─────────────────────────
+function switchRosterSub(sub) {
+  ['active','dropped'].forEach(s => {
+    document.getElementById(`roster-sub-${s}`).style.display = s === sub ? '' : 'none';
+    document.getElementById(`rsub-${s}`).classList.toggle('active', s === sub);
+  });
+  if (sub === 'dropped') renderDroppedTable();
+}
+
+// ─── REMOVE / RESTORE CAMPER ─────────────────
+function openRemoveModal(id, name) {
+  pendingRemoveId = id;
+  document.getElementById('remove-modal-name').textContent = `Dropping: ${name}`;
+  document.getElementById('remove-reason').value = '';
+  document.getElementById('remove-modal').classList.add('show');
+  setTimeout(() => document.getElementById('remove-reason').focus(), 50);
+}
+
+function closeRemoveModal() {
+  pendingRemoveId = null;
+  document.getElementById('remove-modal').classList.remove('show');
+}
+
+async function confirmRemove() {
+  if (!pendingRemoveId) return;
+  const reason = document.getElementById('remove-reason').value.trim();
+  const id = pendingRemoveId;
+  closeRemoveModal();
+  await db.collection('campers').doc(id).update({
+    removed: true,
+    removedReason: reason || '',
+    removedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    removedBy: currentUser.uid
+  });
+  const camper = allCampers.find(c => c.id === id);
+  if (camper) {
+    camper.removed = true; camper.removedReason = reason;
+    removedCampers.push(camper);
+    allCampers = allCampers.filter(c => c.id !== id);
+  }
+  renderRosterTable(); renderDroppedTable();
+  renderSitePills(); renderGroupPills(); renderAdminTable();
+  toast(`🚫 ${camper?.name || 'Camper'} dropped from roster`);
+}
+
+async function restoreCamper(id) {
+  await db.collection('campers').doc(id).update({
+    removed: false,
+    removedReason: firebase.firestore.FieldValue.delete(),
+    removedAt: firebase.firestore.FieldValue.delete(),
+    removedBy: firebase.firestore.FieldValue.delete()
+  });
+  const camper = removedCampers.find(c => c.id === id);
+  if (camper) {
+    delete camper.removed; delete camper.removedReason; delete camper.removedAt;
+    allCampers.push(camper);
+    allCampers.sort((a,b) => a.name.localeCompare(b.name));
+    removedCampers = removedCampers.filter(c => c.id !== id);
+  }
+  renderRosterTable(); renderDroppedTable();
+  renderSitePills(); renderGroupPills(); renderAdminTable();
+  toast(`✓ ${camper?.name || 'Camper'} restored to active roster`);
 }
 
 async function clearRoster() {
-  if (!confirm('Remove ALL campers? This cannot be undone.')) return;
+  if (!confirm('Drop ALL active campers? They will move to the Dropped tab (not permanently deleted).')) return;
   const chunks = [];
   for (let i = 0; i < allCampers.length; i += 499) chunks.push(allCampers.slice(i, i+499));
   for (const chunk of chunks) {
     const batch = db.batch();
-    chunk.forEach(c => batch.delete(db.collection('campers').doc(c.id)));
+    chunk.forEach(c => batch.update(db.collection('campers').doc(c.id), {
+      removed: true, removedReason: 'Bulk clear', removedAt: firebase.firestore.FieldValue.serverTimestamp(), removedBy: currentUser.uid
+    }));
     await batch.commit();
   }
+  removedCampers = [...removedCampers, ...allCampers.map(c => ({...c, removed: true, removedReason: 'Bulk clear'}))];
   allCampers = [];
-  renderRosterTable(); renderSitePills(); renderGroupPills(); renderAdminTable();
-  toast('Roster cleared');
+  renderRosterTable(); renderDroppedTable(); renderSitePills(); renderGroupPills(); renderAdminTable();
+  toast('All campers moved to Dropped');
 }
 
 // ─── LEADERS TAB ─────────────────────────────

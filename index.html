@@ -4,7 +4,71 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Brooklyn United Camp — Attendance</title>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js">
+// ─── TUITION ────────────────────────────────────────────────────────────────
+async function saveTuition(id, val) {
+  const amount = parseFloat(val) || 0;
+  await db.collection('campers').doc(id).update({ tuition: amount });
+  const c = allCampers.find(x => x.id === id);
+  if (c) c.tuition = amount;
+}
+
+async function saveTuitionPaid(id, paid) {
+  await db.collection('campers').doc(id).update({ tuitionPaid: paid });
+  const c = allCampers.find(x => x.id === id);
+  if (c) c.tuitionPaid = paid;
+  renderRevenueReport();
+}
+
+// ─── REVENUE REPORT ─────────────────────────────────────────────────────────
+function renderRevenueReport() {
+  const totalExpected = allCampers.reduce((s,c) => s + (c.tuition||0), 0);
+  const totalPaid     = allCampers.filter(c => c.tuitionPaid).reduce((s,c) => s + (c.tuition||0), 0);
+  const outstanding   = totalExpected - totalPaid;
+  const pct = totalExpected > 0 ? Math.round(totalPaid / totalExpected * 100) : 0;
+
+  document.getElementById('rev-expected').textContent    = '$' + totalExpected.toFixed(2);
+  document.getElementById('rev-collected').textContent   = '$' + totalPaid.toFixed(2);
+  document.getElementById('rev-outstanding').textContent = '$' + outstanding.toFixed(2);
+  document.getElementById('rev-pct').textContent         = pct + '%';
+  document.getElementById('rev-progress').style.width    = pct + '%';
+
+  // Group by site → group
+  const map = {};
+  allCampers.forEach(c => {
+    const site  = c.site  || '—';
+    const group = c.group || '—';
+    const key   = site + '||' + group;
+    if (!map[key]) map[key] = { site, group, count:0, expected:0, paidCount:0, collected:0 };
+    map[key].count++;
+    map[key].expected  += (c.tuition||0);
+    if (c.tuitionPaid) { map[key].paidCount++; map[key].collected += (c.tuition||0); }
+  });
+
+  const rows = Object.values(map).sort((a,b) => a.site.localeCompare(b.site) || a.group.localeCompare(b.group));
+  const tbody = document.getElementById('rev-tbody');
+  if (!rows.length) { tbody.innerHTML = '<tr class="empty-row"><td colspan="7">No campers yet.</td></tr>'; return; }
+
+  tbody.innerHTML = rows.map(r => `<tr>
+    <td><span style="font-size:11px;font-weight:700;color:${siteColor(r.site)}">${esc(r.site)}</span></td>
+    <td><span class="badge badge-blue">${esc(r.group)}</span></td>
+    <td style="text-align:right;">${r.count}</td>
+    <td style="text-align:right;">$${r.expected.toFixed(2)}</td>
+    <td style="text-align:right;">${r.paidCount}</td>
+    <td style="text-align:right;color:#059669;">$${r.collected.toFixed(2)}</td>
+    <td style="text-align:right;color:#dc2626;">$${(r.expected-r.collected).toFixed(2)}</td>
+  </tr>`).join('') +
+  `<tr style="font-weight:700;background:#f8fafc;border-top:2px solid #e5e7eb;">
+    <td colspan="2">Grand Total</td>
+    <td style="text-align:right;">${allCampers.length}</td>
+    <td style="text-align:right;">$${totalExpected.toFixed(2)}</td>
+    <td style="text-align:right;">${allCampers.filter(c=>c.tuitionPaid).length}</td>
+    <td style="text-align:right;color:#059669;">$${totalPaid.toFixed(2)}</td>
+    <td style="text-align:right;color:#dc2626;">$${outstanding.toFixed(2)}</td>
+  </tr>`;
+}
+
+</script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
@@ -175,6 +239,24 @@
     .activity-text { font-size: 13px; line-height: 1.5; }
     .activity-meta { font-size: 11px; color: #9ca3af; margin-top: 2px; }
 
+
+    /* Multi-site/group checklist for leaders */
+    .site-check-row { display:flex; gap:16px; flex-wrap:wrap; padding:6px 0; }
+    .site-check-row label { display:inline-flex; align-items:center; gap:5px; font-size:13px; font-weight:600; cursor:pointer; }
+    .group-checklist { display:flex; flex-wrap:wrap; gap:6px; padding:6px 0; }
+    .group-checklist label { display:inline-flex; align-items:center; gap:4px; background:#f3f4f6; border-radius:6px; padding:4px 10px; font-size:12px; font-weight:600; cursor:pointer; }
+    .group-checklist label:hover { background:#e5e7eb; }
+    .group-checklist input[type=checkbox] { accent-color:#3b5bf5; width:13px; height:13px; }
+    /* Tuition / Revenue */
+    .tuition-input { width:80px; padding:4px 7px; border:1.5px solid #e5e7eb; border-radius:6px; font-size:12px; text-align:right; background:#fff; }
+    .tuition-input:focus { border-color:#3b5bf5; outline:none; }
+    .rev-progress-wrap { background:#f1f5f9; border-radius:99px; height:8px; flex:1; min-width:80px; }
+    .rev-progress-fill { height:8px; border-radius:99px; background:#059669; transition:width .3s; }
+    .pay-paid { color:#059669; font-weight:700; font-size:11px; }
+    .pay-unpaid { color:#dc2626; font-weight:700; font-size:11px; }
+    /* Dropped bulk bar */
+    .dropped-bulk-bar { display:none; align-items:center; gap:10px; padding:10px 16px; background:#fff1f2; border:1.5px solid #fecdd3; border-radius:10px; margin-bottom:12px; }
+    .dropped-bulk-bar.show { display:flex; }
     @media (max-width: 900px) {
       .stats-4 { grid-template-columns: repeat(2, 1fr); }
       .stats-3 { grid-template-columns: repeat(3, 1fr); }
@@ -461,7 +543,7 @@
             <button class="btn btn-red btn-sm" onclick="clearRoster()">Clear All</button>
           </div>
           <table>
-            <thead><tr><th class="check-col"><input type="checkbox" id="select-all-roster" onclick="toggleSelectAll(this.checked)" title="Select all"></th><th>Name</th><th>Site</th><th>Group</th><th class="hide-mobile">Notes</th><th style="width:90px;"></th></tr></thead>
+            <thead><tr><th class="check-col"><input type="checkbox" id="select-all-roster" onclick="toggleSelectAll(this.checked)" title="Select all"></th><th>Name</th><th>Site</th><th>Group</th><th class="hide-mobile">Notes</th><th style="text-align:right;">Tuition</th><th style="width:90px;"></th></tr></thead>
             <tbody id="roster-tbody"></tbody>
           </table>
         </div>
@@ -469,13 +551,18 @@
 
         <!-- Dropped sub-tab -->
         <div id="roster-sub-dropped" style="display:none;">
+          <div class="dropped-bulk-bar" id="dropped-bulk-bar">
+            <span class="bulk-count" id="dropped-bulk-label">0 selected</span>
+            <button class="btn btn-red btn-sm" onclick="permanentDeleteSelected()">🗑 Permanently Delete</button>
+            <button class="btn btn-secondary btn-sm" onclick="clearDroppedSelection()" style="margin-left:auto;">✕ Deselect All</button>
+          </div>
           <div class="table-wrap">
             <div style="padding:14px 18px;background:#fff;border-bottom:1px solid #e5e7eb;">
               <p style="font-weight:700;">Dropped / Removed (<span id="dropped-count">0</span>)</p>
-              <p class="text-gray text-sm">Campers removed from the active roster. You can restore them if needed.</p>
+              <p class="text-gray text-sm">Restore campers or permanently delete them.</p>
             </div>
             <table>
-              <thead><tr><th>Name</th><th>Site</th><th>Group</th><th>Removed On</th><th>Reason</th><th style="width:90px;"></th></tr></thead>
+              <thead><tr><th class="check-col"><input type="checkbox" id="select-all-dropped" onclick="toggleSelectAllDropped(this.checked)" title="Select all"></th><th>Name</th><th>Site</th><th>Group</th><th>Removed On</th><th>Reason</th><th style="width:100px;"></th></tr></thead>
               <tbody id="dropped-tbody"></tbody>
             </table>
           </div>
@@ -491,17 +578,16 @@
             <div><label class="field-label">Name</label><input id="l-name" class="input" placeholder="Leader's name"></div>
             <div><label class="field-label">Email</label><input id="l-email" class="input" type="email" placeholder="leader@example.com"></div>
             <div><label class="field-label">Temporary Password</label><input id="l-pass" class="input" placeholder="They can change it later"></div>
-            <div>
-              <label class="field-label">Site</label>
-              <select id="l-site" class="input" onchange="updateLeaderGroupOpts('l-group','l-site')">
-                <option value="">Select site first...</option>
-                <option value="PS 289">PS 289</option>
-                <option value="Canarsie">Canarsie</option>
-              </select>
+            <div style="grid-column:1/-1;">
+              <label class="field-label">Sites</label>
+              <div class="site-check-row">
+                <label><input type="checkbox" id="l-site-ps289" value="PS 289" onchange="renderLeaderGroupChecks()"> PS 289</label>
+                <label><input type="checkbox" id="l-site-canarsie" value="Canarsie" onchange="renderLeaderGroupChecks()"> Canarsie</label>
+              </div>
             </div>
-            <div>
-              <label class="field-label">Assign to Group</label>
-              <select id="l-group" class="input"><option value="">Select site first...</option></select>
+            <div style="grid-column:1/-1;">
+              <label class="field-label">Assign to Groups</label>
+              <div class="group-checklist" id="l-group-checks"><span class="text-gray text-sm">Select a site above to see groups</span></div>
             </div>
           </div>
           <button id="add-leader-btn" class="btn btn-primary mt-12">Add Leader</button>
@@ -524,7 +610,7 @@
             <p style="font-weight:700;">Active Leaders</p>
           </div>
           <table>
-            <thead><tr><th>Name</th><th>Email</th><th>Site</th><th>Group</th><th style="width:80px;"></th></tr></thead>
+            <thead><tr><th>Name</th><th>Email</th><th>Sites</th><th>Groups</th><th style="width:80px;"></th></tr></thead>
             <tbody id="leaders-tbody"></tbody>
           </table>
         </div>
@@ -538,6 +624,7 @@
           <button class="report-tab" id="rtab-monthly" onclick="switchReportTab('monthly')">🗓 Monthly</button>
           <button class="report-tab" id="rtab-export" onclick="switchReportTab('export')">⬇ Export</button>
           <button class="report-tab" id="rtab-activity" onclick="switchReportTab('activity')">📋 Activity Log</button>
+          <button class="report-tab" id="rtab-revenue" onclick="switchReportTab('revenue')" style="display:none;">💰 Revenue</button>
         </div>
 
         <!-- Daily -->
@@ -614,6 +701,28 @@
           </div>
         </div>
 
+        <!-- Revenue -->
+        <div id="report-revenue" style="display:none;">
+          <div class="stats stats-4" style="margin-bottom:16px;">
+            <div class="stat-card"><div class="stat-num" id="rev-expected" style="color:#111827;">$0</div><div class="stat-label">Total Expected</div></div>
+            <div class="stat-card"><div class="stat-num" id="rev-collected" style="color:#059669;">$0</div><div class="stat-label">Collected</div></div>
+            <div class="stat-card"><div class="stat-num" id="rev-outstanding" style="color:#dc2626;">$0</div><div class="stat-label">Outstanding</div></div>
+            <div class="stat-card">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                <div class="stat-num" id="rev-pct" style="color:#3b5bf5;">0%</div>
+              </div>
+              <div class="rev-progress-wrap"><div class="rev-progress-fill" id="rev-progress" style="width:0%"></div></div>
+              <div class="stat-label" style="margin-top:4px;">% Collected</div>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <div style="padding:14px 18px;background:#fff;border-bottom:1px solid #e5e7eb;font-weight:700;font-size:14px;">Breakdown by Site / Group</div>
+            <table>
+              <thead><tr><th>Site</th><th>Group</th><th style="text-align:right;">Campers</th><th style="text-align:right;">Expected</th><th style="text-align:right;">Paid (count)</th><th style="text-align:right;">Collected</th><th style="text-align:right;">Outstanding</th></tr></thead>
+              <tbody id="rev-tbody"></tbody>
+            </table>
+          </div>
+        </div>
         <!-- Export -->
         <div id="report-export" style="display:none;">
           <div class="card">
@@ -720,6 +829,8 @@ async function showApp() {
   if (role === 'admin') {
     document.getElementById('admin-view').style.display = 'block';
     document.getElementById('header-tabs').style.display = 'flex';
+    const revBtn = document.getElementById('rtab-revenue');
+    if (revBtn) revBtn.style.display = '';
     renderAdminTabs('attendance');
     await Promise.all([fetchCampers(), fetchUsers()]);
     renderSitePills();
@@ -728,10 +839,12 @@ async function showApp() {
     renderAdminTable();
     renderRosterTable();
     renderLeadersTab();
-  } else if (role === 'leader' && userProfile?.group && userProfile?.site) {
+  } else if (role === 'leader' && (userProfile?.group || userProfile?.groups?.length) && (userProfile?.site || userProfile?.sites?.length)) {
     document.getElementById('leader-view').style.display = 'block';
-    document.getElementById('leader-group-title').textContent = userProfile.group;
-    document.getElementById('leader-site-label').textContent = userProfile.site;
+    const _groups = userProfile.groups?.length ? userProfile.groups : (userProfile.group ? [userProfile.group] : []);
+    const _sites  = userProfile.sites?.length  ? userProfile.sites  : (userProfile.site  ? [userProfile.site]  : []);
+    document.getElementById('leader-group-title').textContent = _groups.join(', ') || '—';
+    document.getElementById('leader-site-label').textContent  = _sites.join(' & ') || '—';
     document.getElementById('leader-date-picker').value = selectedDate;
     await fetchCampers();
     await fetchAttendance();
@@ -1028,7 +1141,15 @@ async function saveNotes(camperId, value, btn) {
 
 // ─── LEADER TABLE ────────────────────────────
 function getLeaderCampers() {
-  return allCampers.filter(c => c.site === userProfile?.site && c.group === userProfile?.group);
+  const p = userProfile;
+  if (!p) return [];
+  const sites  = p.sites  && p.sites.length  ? p.sites  : (p.site  ? [p.site]  : []);
+  const groups = p.groups && p.groups.length ? p.groups : (p.group ? [p.group] : []);
+  if (!sites.length && !groups.length) return allCampers;
+  return allCampers.filter(c =>
+    (!sites.length  || sites.includes(c.site)) &&
+    (!groups.length || groups.includes(c.group))
+  );
 }
 
 function renderLeaderTable() {
@@ -1205,15 +1326,19 @@ function renderRosterTable() {
   if (allChk) allChk.checked = campers.length > 0 && campers.every(c => selectedRosterIds.has(c.id));
 }
 
+let selectedDroppedIds = new Set();
+
 function renderDroppedTable() {
   document.getElementById('dropped-count').textContent = removedCampers.length;
   const tbody = document.getElementById('dropped-tbody');
   if (!removedCampers.length) {
-    tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No dropped campers yet.</td></tr>'; return;
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="7">No dropped campers yet.</td></tr>'; return;
   }
   tbody.innerHTML = removedCampers.map(c => {
     const removedOn = c.removedAt?.toDate ? formatDate(c.removedAt.toDate().toISOString().split('T')[0]) : '—';
-    return `<tr>
+    const sel = selectedDroppedIds.has(c.id);
+    return `<tr class="${sel ? 'row-selected' : ''}">
+      <td class="check-col"><input type="checkbox" ${sel ? 'checked' : ''} onclick="toggleDroppedSelect('${c.id}',this.checked)"></td>
       <td class="camper-name">${esc(c.name)}</td>
       <td><span style="font-size:11px;font-weight:700;color:${siteColor(c.site)}">${esc(c.site||'—')}</span></td>
       <td><span class="badge badge-gray">${esc(c.group||'—')}</span></td>
@@ -1222,6 +1347,46 @@ function renderDroppedTable() {
       <td><button class="btn btn-green btn-sm" onclick="restoreCamper('${c.id}')">Restore</button></td>
     </tr>`;
   }).join('');
+  updateDroppedBulkBar();
+}
+
+function toggleDroppedSelect(id, checked) {
+  if (checked) selectedDroppedIds.add(id); else selectedDroppedIds.delete(id);
+  updateDroppedBulkBar();
+  renderDroppedTable();
+}
+
+function toggleSelectAllDropped(checked) {
+  selectedDroppedIds = checked ? new Set(removedCampers.map(c => c.id)) : new Set();
+  renderDroppedTable();
+}
+
+function clearDroppedSelection() {
+  selectedDroppedIds = new Set();
+  renderDroppedTable();
+}
+
+function updateDroppedBulkBar() {
+  const bar = document.getElementById('dropped-bulk-bar');
+  const lbl = document.getElementById('dropped-bulk-label');
+  if (!bar) return;
+  const n = selectedDroppedIds.size;
+  if (n > 0) { bar.classList.add('show'); lbl.textContent = `${n} selected`; }
+  else bar.classList.remove('show');
+}
+
+async function permanentDeleteSelected() {
+  const ids = [...selectedDroppedIds];
+  if (!ids.length) return;
+  if (!confirm(`Permanently delete ${ids.length} camper(s)? This cannot be undone.`)) return;
+  try {
+    const batch = db.batch();
+    ids.forEach(id => batch.delete(db.collection('campers').doc(id)));
+    await batch.commit();
+    selectedDroppedIds = new Set();
+    await fetchCampers();
+    toast(`🗑 ${ids.length} camper(s) permanently deleted`);
+  } catch(e) { toast('Error deleting: ' + e.message); }
 }
 
 // ─── ROSTER SUB-TABS ─────────────────────────
@@ -1449,10 +1614,12 @@ async function addLeader() {
   const name  = document.getElementById('l-name').value.trim();
   const email = document.getElementById('l-email').value.trim();
   const pass  = document.getElementById('l-pass').value;
-  const site  = document.getElementById('l-site').value;
-  const group = document.getElementById('l-group').value;
+  const sites = [];
+  if (document.getElementById('l-site-ps289')?.checked) sites.push('PS 289');
+  if (document.getElementById('l-site-canarsie')?.checked) sites.push('Canarsie');
+  const groups = [...document.querySelectorAll('.l-group-check:checked')].map(el => el.value);
   hideErr('leader-error');
-  if (!name||!email||!pass||!site||!group) { showErr('leader-error','All fields are required'); return; }
+  if (!name||!email||!pass||!sites.length||!groups.length) { showErr('leader-error','All fields are required'); return; }
   const btn = document.getElementById('add-leader-btn');
   btn.disabled = true; btn.textContent = 'Creating…';
   try {
@@ -1461,7 +1628,7 @@ async function addLeader() {
     const cred = await secAuth.createUserWithEmailAndPassword(email, pass);
     await secAuth.signOut();
     await db.collection('users').doc(cred.user.uid).set({
-      name, email, role: 'leader', site, group,
+      name, email, role: 'leader', sites, groups, site: sites[0]||'', group: groups[0]||'',
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
     ['l-name','l-email','l-pass'].forEach(id => document.getElementById(id).value = '');
@@ -1470,6 +1637,17 @@ async function addLeader() {
     toast(`✓ Leader account created for ${name} (${site} — ${group})`);
   } catch(e) { showErr('leader-error', authMsg(e.code) || e.message); }
   finally { btn.disabled = false; btn.textContent = 'Add Leader'; }
+}
+
+function renderLeaderGroupChecks() {
+  const selectedSites = [];
+  if (document.getElementById('l-site-ps289')?.checked) selectedSites.push('PS 289');
+  if (document.getElementById('l-site-canarsie')?.checked) selectedSites.push('Canarsie');
+  const groups = selectedSites.flatMap(s => SITES[s] || []);
+  const el = document.getElementById('l-group-checks');
+  if (!el) return;
+  if (!groups.length) { el.innerHTML = '<span class="text-gray text-sm">Select a site above to see groups</span>'; return; }
+  el.innerHTML = groups.map(g => `<label><input type="checkbox" class="l-group-check" value="${g}"> ${g}</label>`).join('');
 }
 
 function renderLeadersTab() {
@@ -1496,13 +1674,19 @@ function renderLeadersTab() {
     : '<tr class="empty-row"><td colspan="3">No pending users</td></tr>';
 
   document.getElementById('leaders-tbody').innerHTML = leaders.length
-    ? leaders.map(u => `<tr>
+    ? leaders.map(u => {
+      const sites  = u.sites  && u.sites.length  ? u.sites  : (u.site  ? [u.site]  : []);
+      const groups = u.groups && u.groups.length ? u.groups : (u.group ? [u.group] : []);
+      const siteHtml  = sites.map(s  => `<span style="font-size:11px;font-weight:700;color:${siteColor(s)}">${esc(s)}</span>`).join(' ');
+      const groupHtml = groups.map(g => `<span class="badge badge-blue">${esc(g)}</span>`).join(' ');
+      return `<tr>
         <td class="camper-name">${esc(u.name||'—')}</td>
         <td class="text-gray">${esc(u.email)}</td>
-        <td><span style="font-size:11px;font-weight:700;color:${siteColor(u.site)}">${esc(u.site||'—')}</span></td>
-        <td><span class="badge badge-blue">${esc(u.group||'—')}</span></td>
+        <td>${siteHtml||'—'}</td>
+        <td>${groupHtml||'—'}</td>
         <td><button class="btn btn-red btn-sm" onclick="removeUser('${u.uid}')">Remove</button></td>
-      </tr>`).join('')
+      </tr>`;
+    }).join('')
     : '<tr class="empty-row"><td colspan="5">No active leaders yet</td></tr>';
 }
 
@@ -1510,7 +1694,7 @@ async function approveUser(uid) {
   const site  = document.getElementById(`ps-${uid}`)?.value;
   const group = document.getElementById(`pg-${uid}`)?.value;
   if (!site || !group) { toast('Select a site and group first'); return; }
-  await db.collection('users').doc(uid).update({ role: 'leader', site, group });
+  await db.collection('users').doc(uid).update({ role: 'leader', sites: [site], groups: [group], site, group });
   await fetchUsers(); renderLeadersTab();
   toast(`✓ User approved — ${site}, ${group}`);
 }
@@ -1527,7 +1711,7 @@ let activeReportTab = 'daily';
 
 function switchReportTab(tab) {
   activeReportTab = tab;
-  ['daily','weekly','monthly','export','activity'].forEach(t => {
+  ['daily','weekly','monthly','export','activity','revenue'].forEach(t => {
     const el = document.getElementById(`report-${t}`);
     if (el) el.style.display = t === tab ? '' : 'none';
     const btn = document.getElementById(`rtab-${t}`);
@@ -1535,6 +1719,7 @@ function switchReportTab(tab) {
   });
   if (tab === 'daily') loadDailyReport();
   if (tab === 'activity') loadActivityReport();
+  if (tab === 'revenue') renderRevenueReport();
 }
 
 async function loadActivityReport() {

@@ -1650,17 +1650,30 @@ function renderLeadersTab() {
     ? pending.map(u => `<tr>
         <td class="camper-name">${esc(u.name||'—')}</td>
         <td class="text-gray">${esc(u.email)}</td>
-        <td style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-          <select id="ps-${u.uid}" class="input" style="width:110px;" onchange="updateLeaderGroupOpts('pg-${u.uid}','ps-${u.uid}')">
-            <option value="">Site…</option>
-            <option value="PS 289">PS 289</option>
-            <option value="Canarsie">Canarsie</option>
-          </select>
-          <select id="pg-${u.uid}" class="input" style="width:150px;">
-            <option value="">Group…</option>
-          </select>
-          <button class="btn btn-primary btn-sm" onclick="approveUser('${u.uid}')">Approve</button>
-          <button class="btn btn-red btn-sm" onclick="removeUser('${u.uid}')">Reject</button>
+        <td>
+          <div style="display:flex;flex-direction:column;gap:8px;padding:4px 0;">
+            <div>
+              <div style="font-size:10px;font-weight:700;color:#6b7280;letter-spacing:.05em;margin-bottom:3px;">ROLE</div>
+              <div style="display:flex;gap:12px;">
+                <label style="font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="radio" name="pa-role-${u.uid}" value="leader" checked> Leader</label>
+                <label style="font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="radio" name="pa-role-${u.uid}" value="admin"> Admin</label>
+              </div>
+            </div>
+            <div>
+              <div style="font-size:10px;font-weight:700;color:#6b7280;letter-spacing:.05em;margin-bottom:3px;">SITES</div>
+              <div style="display:flex;gap:12px;flex-wrap:wrap;">
+                ${Object.keys(SITES).map(s => `<label style="font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="checkbox" class="pa-site-${u.uid}" value="${esc(s)}" onchange="updatePendingGroups('${u.uid}')"> ${esc(s)}</label>`).join('')}
+              </div>
+            </div>
+            <div>
+              <div style="font-size:10px;font-weight:700;color:#6b7280;letter-spacing:.05em;margin-bottom:3px;">GROUPS</div>
+              <div id="pa-groups-${u.uid}" style="display:flex;gap:8px;flex-wrap:wrap;"><span style="font-size:12px;color:#9ca3af;">Select a site first</span></div>
+            </div>
+            <div style="display:flex;gap:6px;">
+              <button class="btn btn-primary btn-sm" onclick="approveUser('${u.uid}')">Approve</button>
+              <button class="btn btn-red btn-sm" onclick="removeUser('${u.uid}')">Reject</button>
+            </div>
+          </div>
         </td>
       </tr>`).join('')
     : '<tr class="empty-row"><td colspan="3">No pending users</td></tr>';
@@ -1685,13 +1698,28 @@ function renderLeadersTab() {
     : '<tr class="empty-row"><td colspan="5">No active leaders yet</td></tr>';
 }
 
+function updatePendingGroups(uid) {
+  const checkedSites = [...document.querySelectorAll(`.pa-site-${uid}:checked`)].map(el => el.value);
+  const groups = checkedSites.flatMap(s => SITES[s] || []);
+  const container = document.getElementById(`pa-groups-${uid}`);
+  if (!container) return;
+  if (!groups.length) { container.innerHTML = '<span style="font-size:12px;color:#9ca3af;">Select a site first</span>'; return; }
+  container.innerHTML = groups.map(g => `<label style="font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="checkbox" class="pa-group-${uid}" value="${esc(g)}"> ${esc(g)}</label>`).join('');
+}
+
 async function approveUser(uid) {
-  const site  = document.getElementById(`ps-${uid}`)?.value;
-  const group = document.getElementById(`pg-${uid}`)?.value;
-  if (!site || !group) { toast('Select a site and group first'); return; }
-  await db.collection('users').doc(uid).update({ role: 'leader', sites: [site], groups: [group], site, group });
+  const roleEl = document.querySelector(`input[name="pa-role-${uid}"]:checked`);
+  const role   = roleEl?.value || 'leader';
+  const update = { role };
+  if (role === 'leader') {
+    const sites  = [...document.querySelectorAll(`.pa-site-${uid}:checked`)].map(el => el.value);
+    const groups = [...document.querySelectorAll(`.pa-group-${uid}:checked`)].map(el => el.value);
+    if (!sites.length || !groups.length) { toast('Select at least one site and one group'); return; }
+    Object.assign(update, { sites, groups, site: sites[0], group: groups[0] });
+  }
+  await db.collection('users').doc(uid).update(update);
   await fetchUsers(); renderLeadersTab();
-  toast(`✓ User approved — ${site}, ${group}`);
+  toast(`✓ User approved as ${role}`);
 }
 
 async function removeUser(uid) {

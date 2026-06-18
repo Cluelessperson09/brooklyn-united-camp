@@ -46,6 +46,7 @@
     .toggle input:checked ~ .toggle-track { background: #059669; }
     .toggle input:checked ~ .toggle-thumb { transform: translateX(18px); }
     .toggle.blue input:checked ~ .toggle-track { background: #3b5bf5; }
+    .toggle-disabled { opacity: 0.4; pointer-events: none; }
     /* Present toggle: red when absent, green when present */
     .toggle-present .toggle-track { background: #ef4444; }
     .toggle-present input:checked ~ .toggle-track { background: #059669; }
@@ -776,15 +777,15 @@ async function showApp() {
     renderRosterTable();
     renderLeadersTab();
   } else if (role === 'leader' && (userProfile?.group || userProfile?.groups?.length) && (userProfile?.site || userProfile?.sites?.length)) {
-    document.getElementById('leader-view').style.display = 'block';
-    const _groups = userProfile.groups?.length ? userProfile.groups : (userProfile.group ? [userProfile.group] : []);
-    const _sites  = userProfile.sites?.length  ? userProfile.sites  : (userProfile.site  ? [userProfile.site]  : []);
-    document.getElementById('leader-group-title').textContent = _groups.join(', ') || '—';
-    document.getElementById('leader-site-label').textContent  = _sites.join(' & ') || '—';
-    document.getElementById('leader-date-picker').value = selectedDate;
-    await fetchCampers();
+    document.getElementById('admin-view').style.display = 'block';
+    document.getElementById('header-tabs').style.display = 'flex';
+    const revBtn = document.getElementById('rtab-revenue');
+    if (revBtn) revBtn.style.display = '';
+    renderAdminTabs('attendance');
+    await Promise.all([fetchCampers(), fetchUsers()]);
+    renderSitePills(); renderGroupPills();
     await fetchAttendance();
-    renderLeaderTable();
+    renderAdminTable(); renderRosterTable();
   } else {
     document.getElementById('pending-view').style.display = 'block';
   }
@@ -799,7 +800,8 @@ const ADMIN_TABS = [
 ];
 
 function renderAdminTabs(active) {
-  document.getElementById('header-tabs').innerHTML = ADMIN_TABS.map(t =>
+  const tabs = userProfile?.role === 'leader' ? ADMIN_TABS.filter(t => t.id !== 'leaders') : ADMIN_TABS;
+  document.getElementById('header-tabs').innerHTML = tabs.map(t =>
     `<button class="tab ${t.id === active ? 'active' : ''}" onclick="switchTab('${t.id}')">${t.label}</button>`
   ).join('');
   ADMIN_TABS.forEach(t => {
@@ -986,6 +988,15 @@ function visibleCampers() {
 }
 
 // ─── ADMIN TABLE ─────────────────────────────
+// Returns true if camper belongs to the current leader's assigned sites/groups
+function isLeaderCamper(c) {
+  if (!c || userProfile?.role !== 'leader') return true;
+  const groups = userProfile.groups?.length ? userProfile.groups : (userProfile.group ? [userProfile.group] : []);
+  const sites  = userProfile.sites?.length  ? userProfile.sites  : (userProfile.site  ? [userProfile.site]  : []);
+  return (!sites.length  || sites.includes(c.site)) &&
+         (!groups.length || groups.includes(c.group));
+}
+
 function renderAdminTable() {
   let campers = visibleCampers();
   if (searchQuery) {
@@ -1002,19 +1013,24 @@ function renderAdminTable() {
   tbody.innerHTML = campers.map(c => {
     const r = attendanceData[c.id] || {};
     const siteCol = `<span style="font-size:11px;font-weight:700;color:${siteColor(c.site)}">${esc(c.site||'—')}</span>`;
+    const isLeader = userProfile?.role === 'leader';
+    const mine = isLeaderCamper(c); // always true for admins
+    const presentLocked = isLeader && mine && r.present; // leader can't unmark once present
+    const presentDisabled = isLeader && (!mine || presentLocked);
+    const paidDisabled = isLeader && !mine;
     return `<tr>
       <td class="camper-name">${esc(c.name)}</td>
       <td class="hide-mobile">${siteCol}</td>
       <td class="hide-mobile"><span class="badge badge-blue">${esc(c.group||'—')}</span></td>
       <td style="text-align:center;">
-        <label class="toggle toggle-present" title="${r.present?'Present':'Absent'}">
-          <input type="checkbox" ${r.present?'checked':''} onchange="saveRecord('${c.id}','present',this.checked)">
+        <label class="toggle toggle-present${presentDisabled?' toggle-disabled':''}" title="${r.present?'Present':'Absent'}${isLeader&&!mine?' (not your group)':presentLocked?' (locked – cannot unmark)':''}">
+          <input type="checkbox" ${r.present?'checked':''} ${presentDisabled?'disabled':`onchange="saveRecord('${c.id}','present',this.checked)"`}>
           <span class="toggle-track"></span><span class="toggle-thumb"></span>
         </label>
       </td>
       <td style="text-align:center;">
-        <label class="toggle blue" title="${r.paid?'Paid':'Not Paid'}">
-          <input type="checkbox" ${r.paid?'checked':''} onchange="saveRecord('${c.id}','paid',this.checked)">
+        <label class="toggle blue${paidDisabled?' toggle-disabled':''}" title="${r.paid?'Paid':'Not Paid'}${paidDisabled?' (not your group)':''}">
+          <input type="checkbox" ${r.paid?'checked':''} ${paidDisabled?'disabled':`onchange="saveRecord('${c.id}','paid',this.checked)"`}>
           <span class="toggle-track"></span><span class="toggle-thumb"></span>
         </label>
       </td>
@@ -1041,7 +1057,15 @@ function updateAdminStats() {
 }
 
 async function markAll(present) {
-  const campers = visibleCampers();
+  if (userProfile?.role === 'leader' && !present) {
+    toast('Leaders cannot clear attendance once marked'); return;
+  }
+  let campers = visibleCampers();
+  if (userProfile?.role === 'leader') {
+    // Only mark campers in leader's own groups, skip already-present ones
+    campers = campers.filter(c => isLeaderCamper(c) && !attendanceData[c.id]?.present);
+  }
+  if (!campers.length) { toast('No campers to update'); return; }
   const batch = db.batch();
   campers.forEach(c => {
     const ref = db.collection('attendance').doc(selectedDate).collection('records').doc(c.id);
@@ -1266,9 +1290,12 @@ function renderRosterTable() {
       : 'No campers yet. Upload a roster above.';
     tbody.innerHTML = `<tr class="empty-row"><td colspan="7">${msg}</td></tr>`; return;
   }
-  tbody.innerHTML = campers.map(c => `
+  tbody.innerHTML = campers.map(c => {
+    const canEdit = isLeaderCamper(c); // admins always true; leaders only for their groups
+    const isLeader = userProfile?.role === 'leader';
+    return `
     <tr class="${selectedRosterIds.has(c.id) ? 'row-selected' : ''}">
-      <td class="check-col"><input type="checkbox" ${selectedRosterIds.has(c.id) ? 'checked' : ''} onclick="toggleRosterSelect('${c.id}',this.checked)"></td>
+      <td class="check-col"><input type="checkbox" ${selectedRosterIds.has(c.id) ? 'checked' : ''} ${isLeader && !canEdit ? 'disabled' : `onclick="toggleRosterSelect('${c.id}',this.checked)"`}></td>
       <td class="camper-name">${esc(c.name)}</td>
       <td><span style="font-size:11px;font-weight:700;color:${siteColor(c.site)}">${esc(c.site||'—')}</span></td>
       <td><span class="badge badge-blue">${esc(c.group||'—')}</span></td>
@@ -1284,9 +1311,9 @@ function renderRosterTable() {
               : (c.tuitionPaid ? '<span class="pay-paid">✓ Paid</span>' : (c.tuition ? '<span class="pay-unpaid">Unpaid</span>' : ''))}`
         }
       </td>
-      <td><button class="btn btn-red btn-sm" onclick="openRemoveModal('${c.id}','${esc(c.name)}')">Drop</button></td>
-    </tr>
-  `).join('');
+      <td>${canEdit ? `<button class="btn btn-red btn-sm" onclick="openRemoveModal('${c.id}','${esc(c.name)}')">Drop</button>` : ''}</td>
+    </tr>`;
+  }).join('');
   const allChk = document.getElementById('select-all-roster');
   if (allChk) allChk.checked = campers.length > 0 && campers.every(c => selectedRosterIds.has(c.id));
 }
@@ -1597,9 +1624,12 @@ async function addLeader() {
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
     ['l-name','l-email','l-pass'].forEach(id => document.getElementById(id).value = '');
-    document.getElementById('l-site').value = ''; document.getElementById('l-group').innerHTML = '<option value="">Select site first...</option>';
+    const sitePS = document.getElementById('l-site-ps289'); if (sitePS) sitePS.checked = false;
+    const siteCan = document.getElementById('l-site-canarsie'); if (siteCan) siteCan.checked = false;
+    document.querySelectorAll('.l-group-check').forEach(el => el.checked = false);
+    renderLeaderGroupChecks();
     await fetchUsers(); renderLeadersTab();
-    toast(`✓ Leader account created for ${name} (${site} — ${group})`);
+    toast(`✓ Leader account created for ${name} (${sites.join(', ')} — ${groups.join(', ')})`);
   } catch(e) { showErr('leader-error', authMsg(e.code) || e.message); }
   finally { btn.disabled = false; btn.textContent = 'Add Leader'; }
 }
@@ -1623,17 +1653,30 @@ function renderLeadersTab() {
     ? pending.map(u => `<tr>
         <td class="camper-name">${esc(u.name||'—')}</td>
         <td class="text-gray">${esc(u.email)}</td>
-        <td style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-          <select id="ps-${u.uid}" class="input" style="width:110px;" onchange="updateLeaderGroupOpts('pg-${u.uid}','ps-${u.uid}')">
-            <option value="">Site…</option>
-            <option value="PS 289">PS 289</option>
-            <option value="Canarsie">Canarsie</option>
-          </select>
-          <select id="pg-${u.uid}" class="input" style="width:150px;">
-            <option value="">Group…</option>
-          </select>
-          <button class="btn btn-primary btn-sm" onclick="approveUser('${u.uid}')">Approve</button>
-          <button class="btn btn-red btn-sm" onclick="removeUser('${u.uid}')">Reject</button>
+        <td>
+          <div style="display:flex;flex-direction:column;gap:8px;padding:4px 0;">
+            <div>
+              <div style="font-size:10px;font-weight:700;color:#6b7280;letter-spacing:.05em;margin-bottom:3px;">ROLE</div>
+              <div style="display:flex;gap:12px;">
+                <label style="font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="radio" name="pa-role-${u.uid}" value="leader" checked> Leader</label>
+                <label style="font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="radio" name="pa-role-${u.uid}" value="admin"> Admin</label>
+              </div>
+            </div>
+            <div>
+              <div style="font-size:10px;font-weight:700;color:#6b7280;letter-spacing:.05em;margin-bottom:3px;">SITES</div>
+              <div style="display:flex;gap:12px;flex-wrap:wrap;">
+                ${Object.keys(SITES).map(s => `<label style="font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="checkbox" class="pa-site-${u.uid}" value="${esc(s)}" onchange="updatePendingGroups('${u.uid}')"> ${esc(s)}</label>`).join('')}
+              </div>
+            </div>
+            <div>
+              <div style="font-size:10px;font-weight:700;color:#6b7280;letter-spacing:.05em;margin-bottom:3px;">GROUPS</div>
+              <div id="pa-groups-${u.uid}" style="display:flex;gap:8px;flex-wrap:wrap;"><span style="font-size:12px;color:#9ca3af;">Select a site first</span></div>
+            </div>
+            <div style="display:flex;gap:6px;">
+              <button class="btn btn-primary btn-sm" onclick="approveUser('${u.uid}')">Approve</button>
+              <button class="btn btn-red btn-sm" onclick="removeUser('${u.uid}')">Reject</button>
+            </div>
+          </div>
         </td>
       </tr>`).join('')
     : '<tr class="empty-row"><td colspan="3">No pending users</td></tr>';
@@ -1649,19 +1692,37 @@ function renderLeadersTab() {
         <td class="text-gray">${esc(u.email)}</td>
         <td>${siteHtml||'—'}</td>
         <td>${groupHtml||'—'}</td>
-        <td><button class="btn btn-red btn-sm" onclick="removeUser('${u.uid}')">Remove</button></td>
+        <td style="display:flex;gap:4px;flex-wrap:wrap;">
+          <button class="btn btn-primary btn-sm" onclick="promoteToAdmin('${u.uid}')">Make Admin</button>
+          <button class="btn btn-red btn-sm" onclick="removeUser('${u.uid}')">Remove</button>
+        </td>
       </tr>`;
     }).join('')
     : '<tr class="empty-row"><td colspan="5">No active leaders yet</td></tr>';
 }
 
+function updatePendingGroups(uid) {
+  const checkedSites = [...document.querySelectorAll(`.pa-site-${uid}:checked`)].map(el => el.value);
+  const groups = checkedSites.flatMap(s => SITES[s] || []);
+  const container = document.getElementById(`pa-groups-${uid}`);
+  if (!container) return;
+  if (!groups.length) { container.innerHTML = '<span style="font-size:12px;color:#9ca3af;">Select a site first</span>'; return; }
+  container.innerHTML = groups.map(g => `<label style="font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="checkbox" class="pa-group-${uid}" value="${esc(g)}"> ${esc(g)}</label>`).join('');
+}
+
 async function approveUser(uid) {
-  const site  = document.getElementById(`ps-${uid}`)?.value;
-  const group = document.getElementById(`pg-${uid}`)?.value;
-  if (!site || !group) { toast('Select a site and group first'); return; }
-  await db.collection('users').doc(uid).update({ role: 'leader', sites: [site], groups: [group], site, group });
+  const roleEl = document.querySelector(`input[name="pa-role-${uid}"]:checked`);
+  const role   = roleEl?.value || 'leader';
+  const update = { role };
+  if (role === 'leader') {
+    const sites  = [...document.querySelectorAll(`.pa-site-${uid}:checked`)].map(el => el.value);
+    const groups = [...document.querySelectorAll(`.pa-group-${uid}:checked`)].map(el => el.value);
+    if (!sites.length || !groups.length) { toast('Select at least one site and one group'); return; }
+    Object.assign(update, { sites, groups, site: sites[0], group: groups[0] });
+  }
+  await db.collection('users').doc(uid).update(update);
   await fetchUsers(); renderLeadersTab();
-  toast(`✓ User approved — ${site}, ${group}`);
+  toast(`✓ User approved as ${role}`);
 }
 
 async function removeUser(uid) {
@@ -1669,6 +1730,13 @@ async function removeUser(uid) {
   await db.collection('users').doc(uid).delete();
   await fetchUsers(); renderLeadersTab();
   toast('User removed');
+}
+
+async function promoteToAdmin(uid) {
+  if (!confirm('Grant admin rights to this leader? They will have full access to all features.')) return;
+  await db.collection('users').doc(uid).update({ role: 'admin' });
+  await fetchUsers(); renderLeadersTab();
+  toast('✓ Leader promoted to admin');
 }
 
 // ─── REPORTS ─────────────────────────────────

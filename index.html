@@ -1029,10 +1029,11 @@ function renderAdminTable() {
         </label>
       </td>
       <td style="text-align:center;">
-        <label class="toggle blue${paidDisabled?' toggle-disabled':''}" title="${r.paid?'Paid':'Not Paid'}${paidDisabled?' (not your group)':''}">
-          <input type="checkbox" ${r.paid?'checked':''} ${paidDisabled?'disabled':`onchange="saveRecord('${c.id}','paid',this.checked)"`}>
-          <span class="toggle-track"></span><span class="toggle-thumb"></span>
-        </label>
+        ${c.tuition === 'voucher'
+          ? '<span class="badge-voucher" style="font-size:11px;">🎫 Voucher</span>'
+          : c.tuitionPaid
+            ? '<span class="pay-paid">✓ Paid</span>'
+            : (c.tuition ? '<span class="pay-unpaid">Unpaid</span>' : '<span style="color:#9ca3af;font-size:12px;">—</span>')}
       </td>
       <td class="notes-cell">
         <div class="notes-wrap">
@@ -1049,7 +1050,7 @@ function renderAdminTable() {
 function updateAdminStats() {
   const campers = visibleCampers();
   const present = campers.filter(c => attendanceData[c.id]?.present).length;
-  const paid    = campers.filter(c => attendanceData[c.id]?.paid).length;
+  const paid    = campers.filter(c => c.tuitionPaid || c.tuition === 'voucher').length;
   document.getElementById('a-total').textContent   = campers.length;
   document.getElementById('a-present').textContent = present;
   document.getElementById('a-absent').textContent  = campers.length - present;
@@ -1157,7 +1158,7 @@ function updateLeaderStats() {
   const campers = getLeaderCampers();
   document.getElementById('l-total').textContent   = campers.length;
   document.getElementById('l-present').textContent = campers.filter(c => attendanceData[c.id]?.present).length;
-  document.getElementById('l-paid').textContent    = campers.filter(c => attendanceData[c.id]?.paid).length;
+  document.getElementById('l-paid').textContent    = campers.filter(c => c.tuitionPaid || c.tuition === 'voucher').length;
 }
 
 async function markAllLeader(present) {
@@ -1879,13 +1880,12 @@ function buildReportRows(recByDate, dates) {
     for (const group of groups) {
       const campers = allCampers.filter(c => c.site === site && c.group === group);
       if (!campers.length) continue;
-      let present=0, paid=0;
+      let present=0;
       dates.forEach(d => {
         campers.forEach(c => { if (recByDate[d]?.[c.id]?.present) present++; });
       });
-      // paid: use latest date with any data
-      const latestDate = [...dates].reverse().find(d => Object.keys(recByDate[d]||{}).length > 0) || dates[dates.length-1];
-      paid = campers.filter(c => recByDate[latestDate]?.[c.id]?.paid).length;
+      // paid: permanent per-camper tuition record, not per-day
+      const paid = campers.filter(c => c.tuitionPaid || c.tuition === 'voucher').length;
       const possible = isMulti ? campers.length * daysWithData : campers.length;
       sTotal += campers.length; sPresent += present; sPaid += paid; sPossible += possible;
       rows.push({ site, group, total: campers.length, present, paid, possible, daysWithData, isSub: false });

@@ -1309,7 +1309,9 @@ function renderRosterTable() {
               ${userProfile?.role==='admin'?'':'disabled'}>
             ${userProfile?.role==='admin'
               ? `<br><label style="font-size:10px;cursor:pointer;color:#059669;"><input type="checkbox" ${c.tuitionPaid?'checked':''} onchange="saveTuitionPaid('${c.id}',this.checked)" style="width:11px;height:11px;"> Paid</label>`
-              : (c.tuitionPaid ? '<span class="pay-paid">✓ Paid</span>' : (c.tuition ? '<span class="pay-unpaid">Unpaid</span>' : ''))}`
+              : canEdit
+                ? `<br><label style="font-size:10px;cursor:pointer;color:#059669;"><input type="checkbox" ${c.tuitionPaid?'checked':''} onchange="saveTuitionPaid('${c.id}',this.checked)" style="width:11px;height:11px;"> Paid</label>`
+                : (c.tuitionPaid ? '<span class="pay-paid">✓ Paid</span>' : (c.tuition ? '<span class="pay-unpaid">Unpaid</span>' : ''))}`
         }
       </td>
       <td>${canEdit ? `<button class="btn btn-red btn-sm" onclick="openRemoveModal('${c.id}','${esc(c.name)}')">Drop</button>` : ''}</td>

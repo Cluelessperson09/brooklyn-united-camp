@@ -1965,10 +1965,12 @@ function exportCurrentReport() {
 
 // ─── EXPORT CSV ──────────────────────────────
 function exportTodayCSV() {
-  const rows = [['Name','Site','Group','Present','Paid','Notes']];
+  // Single-day pivot: Name, Site, Group, [date], Days Present, Notes
+  const dateLabel = formatDate(selectedDate);
+  const rows = [['Name','Site','Group', dateLabel, 'Days Present','Notes']];
   visibleCampers().forEach(c => {
     const r = attendanceData[c.id] || {};
-    rows.push([c.name, c.site||'', c.group||'', r.present?'Yes':'No', r.paid?'Yes':'No', r.notes||'']);
+    rows.push([c.name, c.site||'', c.group||'', r.present?'Yes':'No', r.present?1:0, r.notes||'']);
   });
   dlCSV(rows, `attendance-${selectedDate}.csv`);
 }
@@ -1987,12 +1989,21 @@ async function exportRange() {
     while (cur <= end) { dates.push(cur.toISOString().split('T')[0]); cur.setDate(cur.getDate()+1); }
     const recByDate = await fetchDateRange(dates);
     const campers = expSite === 'all' ? allCampers : allCampers.filter(c => c.site === expSite);
-    const rows = [['Date','Name','Site','Group','Present','Paid','Notes']];
-    dates.forEach(d => {
-      campers.forEach(c => {
+
+    // Pivot: one row per camper, one column per date
+    const dateLabels = dates.map(d => formatDate(d));
+    const headers = ['Name', 'Site', 'Group', ...dateLabels, 'Days Present', 'Notes'];
+    const rows = [headers];
+    campers.forEach(c => {
+      let daysPresent = 0;
+      let lastNote = '';
+      const dateCols = dates.map(d => {
         const r = (recByDate[d]||{})[c.id] || {};
-        rows.push([d, c.name, c.site||'', c.group||'', r.present?'Yes':'No', r.paid?'Yes':'No', r.notes||'']);
+        if (r.present) daysPresent++;
+        if (r.notes) lastNote = r.notes;
+        return r.present ? 'Yes' : 'No';
       });
+      rows.push([c.name, c.site||'', c.group||'', ...dateCols, daysPresent, lastNote]);
     });
     dlCSV(rows, `attendance-${from}-to-${to}.csv`);
   } catch(e) { toast('Export failed: ' + e.message); }

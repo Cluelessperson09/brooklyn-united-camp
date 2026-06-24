@@ -9,6 +9,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0f4f8; min-height: 100vh; color: #1a202c; font-size: 14px; }
@@ -551,6 +552,33 @@
             <tbody id="leaders-tbody"></tbody>
           </table>
         </div>
+
+        <!-- Email Notifications Settings (admin only) -->
+        <div class="card mt-16" style="margin-top:20px;">
+          <div class="section-title">📧 Email Notifications</div>
+          <p class="text-gray text-sm" style="margin-bottom:14px;">Get an email when a note is added, a camper is transferred, or a camper is dropped. Uses <a href="https://www.emailjs.com" target="_blank" style="color:#3b5bf5;">EmailJS</a> (free, no backend needed).</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+            <div><label class="field-label">EmailJS Public Key</label><input id="ejs-pubkey" class="input" placeholder="e.g. abc123XYZ" autocomplete="off"></div>
+            <div><label class="field-label">Service ID</label><input id="ejs-service" class="input" placeholder="e.g. service_xxxxxx"></div>
+            <div><label class="field-label">Template ID</label><input id="ejs-template" class="input" placeholder="e.g. template_xxxxxx"></div>
+            <div><label class="field-label">Notify Email</label><input id="ejs-to" class="input" type="email" placeholder="your@email.com"></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <button class="btn btn-primary btn-sm" onclick="saveEmailConfig()">Save Settings</button>
+            <button class="btn btn-outline btn-sm" onclick="testEmailNotification()">Send Test Email</button>
+            <span id="ejs-status" style="font-size:12px;color:#6b7280;"></span>
+          </div>
+          <div style="margin-top:14px;padding:12px 14px;background:#f8fafc;border-radius:8px;border:1px solid #e5e7eb;">
+            <p style="font-weight:700;font-size:12px;margin-bottom:6px;">Setup (one-time, ~3 minutes):</p>
+            <ol style="font-size:12px;color:#4b5563;padding-left:18px;line-height:1.8;">
+              <li>Go to <a href="https://www.emailjs.com" target="_blank" style="color:#3b5bf5;">emailjs.com</a> → create a free account</li>
+              <li>Add Email Service (connect Gmail) → copy the <strong>Service ID</strong></li>
+              <li>Create Email Template with variables: <code style="background:#e5e7eb;padding:1px 4px;border-radius:3px;">{{subject}}</code>, <code style="background:#e5e7eb;padding:1px 4px;border-radius:3px;">{{message}}</code>, <code style="background:#e5e7eb;padding:1px 4px;border-radius:3px;">{{to_email}}</code> → copy the <strong>Template ID</strong></li>
+              <li>Go to Account → copy your <strong>Public Key</strong></li>
+              <li>Fill in the fields above and click Save</li>
+            </ol>
+          </div>
+        </div>
       </div>
 
       <!-- ── REPORTS TAB ── -->
@@ -808,6 +836,7 @@ function renderAdminTabs(active) {
     document.getElementById(`tab-${t.id}`).style.display = t.id === active ? '' : 'none';
   });
   if (active === 'reports') { switchReportTab('daily'); }
+  if (active === 'leaders') { setTimeout(loadEmailConfig, 50); }
 }
 
 function switchTab(id) { renderAdminTabs(id); }
@@ -1097,6 +1126,15 @@ async function saveNotes(camperId, value, btn) {
     btn.textContent = '✓ Saved';
     btn.classList.add('saved');
     setTimeout(() => { btn.textContent = 'Save'; btn.classList.remove('saved'); }, 1800);
+  }
+  // Email notification for non-empty notes
+  if (value && value.trim()) {
+    const camper = allCampers.find(c => c.id === camperId);
+    const by = userProfile?.name || currentUser?.email || 'Someone';
+    sendNotificationEmail(
+      `📝 Note Added — ${camper?.name || 'Camper'}`,
+      `A note was added on ${formatDate(selectedDate)}.\n\nCamper: ${camper?.name || camperId}\nSite: ${camper?.site || '—'}  |  Group: ${camper?.group || '—'}\nAdded by: ${by}\n\nNote:\n${value.trim()}`
+    );
   }
 }
 
@@ -1502,6 +1540,15 @@ async function confirmMove() {
   updateBulkBar();
   renderRosterTable(); renderSitePills(); renderGroupPills(); renderAdminTable();
   toast(`✓ ${ids.length} camper${ids.length > 1 ? 's' : ''} moved to ${newGroup}`);
+  // Email notification for transfer
+  const names = ids.map(id => allCampers.find(c => c.id === id)?.name || id).join(', ');
+  const fromSite  = allCampers.find(c => c.id === ids[0])?.site  || '—';
+  const fromGroup = allCampers.find(c => c.id === ids[0])?.group || '—';
+  const by = userProfile?.name || currentUser?.email || 'Someone';
+  sendNotificationEmail(
+    `🔄 Camper${ids.length > 1 ? 's' : ''} Transferred — ${names}`,
+    `${ids.length} camper${ids.length > 1 ? 's were' : ' was'} transferred.\n\nCamper${ids.length > 1 ? 's' : ''}: ${names}\nFrom: ${fromSite} / ${fromGroup}\nTo: ${newSite} / ${newGroup}\nTransferred by: ${by}\nDate: ${formatDate(selectedDate)}`
+  );
 }
 
 // ─── REMOVE / RESTORE CAMPER ─────────────────
@@ -1552,6 +1599,12 @@ async function confirmRemove() {
     });
   });
   await logBatch.commit();
+  // Capture names before removing from allCampers
+  const droppedNames = ids.map(id => allCampers.find(c => c.id === id)?.name || id);
+  const droppedDetails = ids.map(id => {
+    const c = allCampers.find(cc => cc.id === id);
+    return c ? `${c.name} (${c.site || '—'} / ${c.group || '—'})` : id;
+  });
   // Update local state
   ids.forEach(id => {
     const camper = allCampers.find(c => c.id === id);
@@ -1565,7 +1618,13 @@ async function confirmRemove() {
   updateBulkBar();
   renderRosterTable(); renderDroppedTable();
   renderSitePills(); renderGroupPills(); renderAdminTable();
-  toast(`🚫 ${ids.length === 1 ? (allCampers.find(c=>c.id===ids[0])?.name || removedCampers.find(c=>c.id===ids[0])?.name || 'Camper') : ids.length + ' campers'} dropped from roster`);
+  toast(`🚫 ${ids.length === 1 ? (removedCampers.find(c=>c.id===ids[0])?.name || 'Camper') : ids.length + ' campers'} dropped from roster`);
+  // Email notification for drop
+  const by = userProfile?.name || currentUser?.email || 'Someone';
+  sendNotificationEmail(
+    `🚫 Camper${ids.length > 1 ? 's' : ''} Dropped — ${droppedNames.join(', ')}`,
+    `${ids.length} camper${ids.length > 1 ? 's were' : ' was'} dropped from the roster.\n\nCamper${ids.length > 1 ? 's' : ''}:\n${droppedDetails.join('\n')}\n\nDropped by: ${by}\nReason: ${reason || 'No reason given'}\nDate: ${new Date().toLocaleDateString()}`
+  );
 }
 
 async function restoreCamper(id) {
@@ -2016,6 +2075,70 @@ function formatDate(dateStr) {
   const [y,m,d] = dateStr.split('-');
   const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   return `${months[parseInt(m)-1]} ${parseInt(d)}, ${y}`;
+}
+
+// ─── EMAIL NOTIFICATIONS (EmailJS) ───────────
+function saveEmailConfig() {
+  const cfg = {
+    pubkey:   document.getElementById('ejs-pubkey').value.trim(),
+    service:  document.getElementById('ejs-service').value.trim(),
+    template: document.getElementById('ejs-template').value.trim(),
+    to:       document.getElementById('ejs-to').value.trim()
+  };
+  if (!cfg.pubkey || !cfg.service || !cfg.template || !cfg.to) {
+    toast('Fill in all 4 email fields'); return;
+  }
+  localStorage.setItem('bu_email_cfg', JSON.stringify(cfg));
+  emailjs.init(cfg.pubkey);
+  document.getElementById('ejs-status').textContent = '✓ Saved';
+  setTimeout(() => document.getElementById('ejs-status').textContent = '', 3000);
+  toast('✓ Email notification settings saved');
+}
+
+function loadEmailConfig() {
+  try {
+    const cfg = JSON.parse(localStorage.getItem('bu_email_cfg') || '{}');
+    if (cfg.pubkey)   document.getElementById('ejs-pubkey').value   = cfg.pubkey;
+    if (cfg.service)  document.getElementById('ejs-service').value  = cfg.service;
+    if (cfg.template) document.getElementById('ejs-template').value = cfg.template;
+    if (cfg.to)       document.getElementById('ejs-to').value       = cfg.to;
+    if (cfg.pubkey)   emailjs.init(cfg.pubkey);
+  } catch(e) {}
+}
+
+async function sendNotificationEmail(subject, message) {
+  try {
+    const cfg = JSON.parse(localStorage.getItem('bu_email_cfg') || '{}');
+    if (!cfg.pubkey || !cfg.service || !cfg.template || !cfg.to) return; // not configured
+    await emailjs.send(cfg.service, cfg.template, {
+      to_email: cfg.to,
+      subject,
+      message
+    });
+  } catch(e) {
+    console.warn('Email notification failed:', e);
+  }
+}
+
+async function testEmailNotification() {
+  const cfg = JSON.parse(localStorage.getItem('bu_email_cfg') || '{}');
+  if (!cfg.pubkey || !cfg.service || !cfg.template || !cfg.to) {
+    toast('Save your email settings first'); return;
+  }
+  const status = document.getElementById('ejs-status');
+  status.textContent = 'Sending…';
+  try {
+    await sendNotificationEmail(
+      'Brooklyn United Camp — Test Notification',
+      'This is a test email from your Brooklyn United Camp attendance tracker. Email notifications are working!'
+    );
+    status.textContent = '✓ Test email sent!';
+    toast('✓ Test email sent — check your inbox');
+  } catch(e) {
+    status.textContent = '✗ Send failed';
+    toast('Email failed: ' + e.message);
+  }
+  setTimeout(() => status.textContent = '', 5000);
 }
 
 function dlCSV(rows, filename) {

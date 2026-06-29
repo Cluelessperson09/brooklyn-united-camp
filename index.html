@@ -761,6 +761,7 @@ window.addEventListener('DOMContentLoaded', () => {
   const mm = document.getElementById('rpt-monthly-date');
   if (mm) mm.value = selectedDate.substring(0,7);
   wireEvents();
+  loadEmailConfig(); // init EmailJS on startup so notifications work from any tab
 });
 
 function bootFirebase() {
@@ -2102,11 +2103,17 @@ function saveEmailConfig() {
 function loadEmailConfig() {
   try {
     const cfg = JSON.parse(localStorage.getItem('bu_email_cfg') || '{}');
-    if (cfg.pubkey)   document.getElementById('ejs-pubkey').value   = cfg.pubkey;
-    if (cfg.service)  document.getElementById('ejs-service').value  = cfg.service;
-    if (cfg.template) document.getElementById('ejs-template').value = cfg.template;
-    if (cfg.to)       document.getElementById('ejs-to').value       = cfg.to;
-    if (cfg.pubkey)   emailjs.init(cfg.pubkey);
+    // Always init EmailJS if key exists (works even before Leaders tab is open)
+    if (cfg.pubkey) emailjs.init(cfg.pubkey);
+    // Only populate form fields if the elements exist in the DOM
+    const pk = document.getElementById('ejs-pubkey');
+    if (pk && cfg.pubkey)   pk.value   = cfg.pubkey;
+    const sv = document.getElementById('ejs-service');
+    if (sv && cfg.service)  sv.value  = cfg.service;
+    const tm = document.getElementById('ejs-template');
+    if (tm && cfg.template) tm.value = cfg.template;
+    const to = document.getElementById('ejs-to');
+    if (to && cfg.to)       to.value       = cfg.to;
   } catch(e) {}
 }
 

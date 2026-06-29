@@ -1507,6 +1507,11 @@ async function confirmMove() {
   const newGroup = document.getElementById('move-group').value;
   if (!newSite || !newGroup) { toast('Please select a site and group'); return; }
   const ids = [...selectedRosterIds];
+  // Capture from-values and names BEFORE any state changes
+  const transferSnapshot = ids.map(id => {
+    const camper = allCampers.find(c => c.id === id);
+    return { id, name: camper?.name || id, fromSite: camper?.site || '—', fromGroup: camper?.group || '—' };
+  });
   const batch = db.batch();
   const now = firebase.firestore.FieldValue.serverTimestamp();
   ids.forEach(id => {
@@ -1515,14 +1520,13 @@ async function confirmMove() {
   await batch.commit();
   // Log transfers
   const logBatch = db.batch();
-  ids.forEach(id => {
-    const camper = allCampers.find(c => c.id === id);
+  transferSnapshot.forEach(({ id, name, fromSite, fromGroup }) => {
     logBatch.set(db.collection('activity_log').doc(), {
       type: 'transfer',
       camperId: id,
-      camperName: camper?.name || '',
-      fromSite: camper?.site || '',
-      fromGroup: camper?.group || '',
+      camperName: name,
+      fromSite,
+      fromGroup,
       toSite: newSite,
       toGroup: newGroup,
       by: currentUser.uid,
@@ -1540,14 +1544,14 @@ async function confirmMove() {
   updateBulkBar();
   renderRosterTable(); renderSitePills(); renderGroupPills(); renderAdminTable();
   toast(`✓ ${ids.length} camper${ids.length > 1 ? 's' : ''} moved to ${newGroup}`);
-  // Email notification for transfer
-  const names = ids.map(id => allCampers.find(c => c.id === id)?.name || id).join(', ');
-  const fromSite  = allCampers.find(c => c.id === ids[0])?.site  || '—';
-  const fromGroup = allCampers.find(c => c.id === ids[0])?.group || '—';
-  const by = userProfile?.name || currentUser?.email || 'Someone';
+  // Email notification — use pre-captured snapshot
+  const byName  = userProfile?.name  || '';
+  const byEmail = currentUser?.email || '';
+  const byLabel = byName ? `${byName} (${byEmail})` : byEmail;
+  const camperLines = transferSnapshot.map(s => `  • ${s.name}: ${s.fromSite} / ${s.fromGroup} → ${newSite} / ${newGroup}`).join('\n');
   sendNotificationEmail(
-    `🔄 Camper${ids.length > 1 ? 's' : ''} Transferred — ${names}`,
-    `${ids.length} camper${ids.length > 1 ? 's were' : ' was'} transferred.\n\nCamper${ids.length > 1 ? 's' : ''}: ${names}\nFrom: ${fromSite} / ${fromGroup}\nTo: ${newSite} / ${newGroup}\nTransferred by: ${by}\nDate: ${formatDate(selectedDate)}`
+    `🔄 Camper${ids.length > 1 ? 's' : ''} Transferred — ${transferSnapshot.map(s=>s.name).join(', ')}`,
+    `${ids.length} camper${ids.length > 1 ? 's were' : ' was'} transferred.\n\n${camperLines}\n\nTransferred by: ${byLabel}\nDate: ${new Date().toLocaleDateString('en-US', {month:'short',day:'numeric',year:'numeric'})}`
   );
 }
 

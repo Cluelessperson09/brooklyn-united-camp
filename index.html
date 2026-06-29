@@ -2103,8 +2103,7 @@ function saveEmailConfig() {
 function loadEmailConfig() {
   try {
     const cfg = JSON.parse(localStorage.getItem('bu_email_cfg') || '{}');
-    // Always init EmailJS if key exists (works even before Leaders tab is open)
-    if (cfg.pubkey) emailjs.init(cfg.pubkey);
+    if (cfg.pubkey && typeof emailjs !== 'undefined') emailjs.init(cfg.pubkey);
     // Only populate form fields if the elements exist in the DOM
     const pk = document.getElementById('ejs-pubkey');
     if (pk && cfg.pubkey)   pk.value   = cfg.pubkey;
@@ -2113,14 +2112,23 @@ function loadEmailConfig() {
     const tm = document.getElementById('ejs-template');
     if (tm && cfg.template) tm.value = cfg.template;
     const to = document.getElementById('ejs-to');
-    if (to && cfg.to)       to.value       = cfg.to;
-  } catch(e) {}
+    if (to && cfg.to)       to.value  = cfg.to;
+  } catch(e) { console.warn('loadEmailConfig error:', e); }
 }
 
 async function sendNotificationEmail(subject, message) {
   try {
     const cfg = JSON.parse(localStorage.getItem('bu_email_cfg') || '{}');
-    if (!cfg.pubkey || !cfg.service || !cfg.template || !cfg.to) return; // not configured
+    if (!cfg.pubkey || !cfg.service || !cfg.template || !cfg.to) {
+      console.warn('Email not configured — skipping notification');
+      return;
+    }
+    if (typeof emailjs === 'undefined') {
+      console.warn('EmailJS library not loaded');
+      return;
+    }
+    // Re-init in case it wasn't ready at startup
+    emailjs.init(cfg.pubkey);
     await emailjs.send(cfg.service, cfg.template, {
       to_email: cfg.to,
       subject,
@@ -2128,6 +2136,7 @@ async function sendNotificationEmail(subject, message) {
     });
   } catch(e) {
     console.warn('Email notification failed:', e);
+    toast('⚠ Email failed: ' + (e?.text || e?.message || 'check console'));
   }
 }
 

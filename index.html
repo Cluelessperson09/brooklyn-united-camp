@@ -1025,6 +1025,18 @@ function siteColor(site) { return SITE_COLORS[site] || '#6b7280'; }
 // ─── SITE + GROUP PILLS ──────────────────────
 function renderSitePills() {
   const siteClass = s => s === 'Elim Church' ? 'site-ps289' : s === 'Canarise' ? 'site-canarise' : '';
+  // Leaders only see their assigned sites
+  if (userProfile?.role === 'leader') {
+    const leaderSites = userProfile.sites?.length ? userProfile.sites : (userProfile.site ? [userProfile.site] : []);
+    if (leaderSites.length <= 1) { document.getElementById('site-pills').innerHTML = ''; return; }
+    document.getElementById('site-pills').innerHTML =
+      ['all', ...leaderSites].map(s => `
+        <button class="pill ${siteClass(s)} ${s === selectedSite ? 'active' : ''}" onclick="selectSite('${s}')">
+          ${s === 'all' ? '🏕 All Sites' : s}
+        </button>
+      `).join('');
+    return;
+  }
   document.getElementById('site-pills').innerHTML =
     ['all', 'Elim Church', 'Canarise'].map(s => `
       <button class="pill ${siteClass(s)} ${s === selectedSite ? 'active' : ''}" onclick="selectSite('${s}')">
@@ -1034,6 +1046,17 @@ function renderSitePills() {
 }
 
 function renderGroupPills() {
+  // Leaders only see their assigned groups
+  if (userProfile?.role === 'leader') {
+    const leaderGroups = userProfile.groups?.length ? userProfile.groups : (userProfile.group ? [userProfile.group] : []);
+    document.getElementById('group-pills').innerHTML =
+      (leaderGroups.length > 1 ? ['all', ...leaderGroups] : leaderGroups).map(g => `
+        <button class="pill ${g === selectedGroup ? 'active' : ''}" onclick="selectGroup('${g}')">
+          ${g === 'all' ? 'All Groups' : g}
+        </button>
+      `).join('');
+    return;
+  }
   const groups = selectedSite === 'all'
     ? Object.values(SITES).flat()
     : (SITES[selectedSite] || []);

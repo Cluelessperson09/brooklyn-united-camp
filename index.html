@@ -1083,7 +1083,7 @@ function renderAdminTable() {
     const msg = searchQuery
       ? `No camper found by the name "<strong>${esc(searchQuery)}</strong>". Please check the spelling.`
       : 'No campers found. Upload a roster first.';
-    tbody.innerHTML = `<tr class="empty-row"><td colspan="7">${msg}</td></tr>`; return;
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="7">${msg}</td></tr>`; updateAdminStats(); return;
   }
   tbody.innerHTML = campers.map(c => {
     const r = attendanceData[c.id] || {};

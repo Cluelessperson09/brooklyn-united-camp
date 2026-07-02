@@ -1291,6 +1291,9 @@ function normalizeRow(row) {
         const num = parseFloat(raw.replace(/[$,]/g, ''));
         if (!isNaN(num)) out.tuition = num;
       }
+    } else if (['paid','tuitionpaid','ispaid','paymentstatus','paymentstatus','paidstatus'].includes(lk)) {
+      const raw = String(row[k]).trim().toLowerCase();
+      out.tuitionPaid = ['yes','true','1','paid','x','y','✓','✔'].includes(raw);
     }
     // Site & Group intentionally NOT read from CSV — use upload-form dropdowns
   });
@@ -1303,15 +1306,16 @@ function previewRoster(data, filename) {
   pendingRows = rows;
   document.getElementById('preview-title').textContent = `${filename} — ${rows.length} campers found`;
   document.getElementById('preview-head').innerHTML =
-    '<tr>' + ['Name','Site','Group','Notes','Tuition'].map(c => `<th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;">${c}</th>`).join('') + '</tr>';
+    '<tr>' + ['Name','Site','Group','Notes','Tuition','Paid'].map(c => `<th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;">${c}</th>`).join('') + '</tr>';
   const preview = rows.slice(0, 8);
   const defaultSiteVal  = document.getElementById('upload-site')?.value || '—';
   const defaultGroupVal = document.getElementById('upload-group')?.value || '—';
   document.getElementById('preview-body').innerHTML = preview.map(r => {
     const td = (v,italic) => `<td style="padding:7px 12px;border-top:1px solid #f1f5f9;${italic?'color:#9ca3af;font-style:italic;':''}">${v}</td>`;
     const tuitionDisp = r.tuition === 'voucher' ? '<span class="badge-voucher">🎫 Voucher</span>' : (r.tuition != null ? '$'+Number(r.tuition).toFixed(2) : '—');
-    return `<tr>${td(esc(r.name||''))}${td(esc(defaultSiteVal),true)}${td(esc(defaultGroupVal),true)}${td(esc(r.notes||'—'))}${td(tuitionDisp)}</tr>`;
-  }).join('') + (rows.length > 8 ? `<tr><td colspan="5" style="padding:8px 12px;color:#9ca3af;font-size:12px;">…and ${rows.length - 8} more</td></tr>` : '');
+    const paidDisp = (r.tuition === 'voucher' || r.tuitionPaid) ? '<span class="pay-paid">✓ Paid</span>' : '<span style="color:#9ca3af;font-size:12px;">—</span>';
+    return `<tr>${td(esc(r.name||''))}${td(esc(defaultSiteVal),true)}${td(esc(defaultGroupVal),true)}${td(esc(r.notes||'—'))}${td(tuitionDisp)}${td(paidDisp)}</tr>`;
+  }).join('') + (rows.length > 8 ? `<tr><td colspan="6" style="padding:8px 12px;color:#9ca3af;font-size:12px;">…and ${rows.length - 8} more</td></tr>` : '');
   document.getElementById('upload-zone').style.display = 'none';
   document.getElementById('upload-preview').style.display = 'block';
 }
@@ -1344,8 +1348,10 @@ async function confirmUpload() {
           addedAt: firebase.firestore.FieldValue.serverTimestamp()
         };
         if (r.tuition != null) {
-          doc.tuition = r.tuition;                    // number or 'voucher'
-          doc.tuitionPaid = r.tuition === 'voucher';  // vouchers auto-marked paid
+          doc.tuition = r.tuition;                                        // number or 'voucher'
+          doc.tuitionPaid = r.tuition === 'voucher' || !!r.tuitionPaid;  // vouchers + explicit paid column
+        } else if (r.tuitionPaid) {
+          doc.tuitionPaid = true;  // paid flag even without a tuition amount
         }
         batch.set(db.collection('campers').doc(), doc);
       });

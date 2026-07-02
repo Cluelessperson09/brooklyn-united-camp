@@ -853,8 +853,7 @@ async function showApp() {
   } else if (role === 'leader' && (userProfile?.group || userProfile?.groups?.length) && (userProfile?.site || userProfile?.sites?.length)) {
     document.getElementById('admin-view').style.display = 'block';
     document.getElementById('header-tabs').style.display = 'flex';
-    const revBtn = document.getElementById('rtab-revenue');
-    if (revBtn) revBtn.style.display = '';
+    // Revenue tab stays hidden for leaders
     renderAdminTabs('attendance');
     await Promise.all([fetchCampers(), fetchUsers()]);
     renderSitePills(); renderGroupPills();

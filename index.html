@@ -1302,9 +1302,27 @@ function normalizeRow(row) {
     } else if (['paid','tuitionpaid','ispaid','paymentstatus','paymentstatus','paidstatus'].includes(lk)) {
       const raw = String(row[k]).trim().toLowerCase();
       out.tuitionPaid = ['yes','true','1','paid','x','y','✓','✔'].includes(raw);
+    } else if (['site','location','campus'].includes(lk)) {
+      out.site = String(row[k]).trim();
+    } else if (['group','groupname','class','division','team','program'].includes(lk)) {
+      out.group = String(row[k]).trim();
     }
-    // Site & Group intentionally NOT read from CSV — use upload-form dropdowns
   });
+  // Auto-detect site from group if site not provided
+  if (!out.site && out.group) {
+    for (const [siteName, groups] of Object.entries(SITES)) {
+      if (groups.some(g => g.toLowerCase() === out.group.toLowerCase())) {
+        out.site = siteName;
+        out.group = groups.find(g => g.toLowerCase() === out.group.toLowerCase()); // normalize casing
+        break;
+      }
+    }
+  }
+  // Normalize site casing if provided
+  if (out.site) {
+    const match = Object.keys(SITES).find(s => s.toLowerCase() === out.site.toLowerCase());
+    if (match) out.site = match;
+  }
   return out;
 }
 
@@ -1322,7 +1340,11 @@ function previewRoster(data, filename) {
     const td = (v,italic) => `<td style="padding:7px 12px;border-top:1px solid #f1f5f9;${italic?'color:#9ca3af;font-style:italic;':''}">${v}</td>`;
     const tuitionDisp = r.tuition === 'voucher' ? '<span class="badge-voucher">🎫 Voucher</span>' : r.tuition === 'scholarship' ? '<span class="badge-scholarship">🎓 Scholarship</span>' : (r.tuition != null ? '$'+Number(r.tuition).toFixed(2) : '—');
     const paidDisp = (r.tuition === 'voucher' || r.tuition === 'scholarship' || r.tuitionPaid) ? '<span class="pay-paid">✓ Paid</span>' : '<span style="color:#9ca3af;font-size:12px;">—</span>';
-    return `<tr>${td(esc(r.name||''))}${td(esc(defaultSiteVal),true)}${td(esc(defaultGroupVal),true)}${td(esc(r.notes||'—'))}${td(tuitionDisp)}${td(paidDisp)}</tr>`;
+    const siteVal  = r.site  || defaultSiteVal;
+    const groupVal = r.group || defaultGroupVal;
+    const siteFromCSV  = !!r.site;
+    const groupFromCSV = !!r.group;
+    return `<tr>${td(esc(r.name||''))}${td(esc(siteVal),!siteFromCSV)}${td(esc(groupVal),!groupFromCSV)}${td(esc(r.notes||'—'))}${td(tuitionDisp)}${td(paidDisp)}</tr>`;
   }).join('') + (rows.length > 8 ? `<tr><td colspan="6" style="padding:8px 12px;color:#9ca3af;font-size:12px;">…and ${rows.length - 8} more</td></tr>` : '');
   document.getElementById('upload-zone').style.display = 'none';
   document.getElementById('upload-preview').style.display = 'block';
@@ -1350,8 +1372,8 @@ async function confirmUpload() {
       chunk.forEach(r => {
         const doc = {
           name:  r.name,
-          site:  defaultSite  || '',   // always from form, never from CSV
-          group: defaultGroup || '',   // always from form, never from CSV
+          site:  r.site  || defaultSite  || '',   // CSV first, then form default
+          group: r.group || defaultGroup || '',   // CSV first, then form default
           notes: r.notes || '',
           addedAt: firebase.firestore.FieldValue.serverTimestamp()
         };

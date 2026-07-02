@@ -1396,8 +1396,8 @@ async function confirmUpload() {
 }
 
 function renderRosterTable() {
-  document.getElementById('roster-count').textContent = allCampers.length;
-  let campers = [...allCampers];
+  let campers = userProfile?.role === 'leader' ? allCampers.filter(c => isLeaderCamper(c)) : [...allCampers];
+  document.getElementById('roster-count').textContent = campers.length;
   if (rosterSearchQuery) {
     const q = rosterSearchQuery.toLowerCase();
     campers = campers.filter(c => c.name.toLowerCase().includes(q));

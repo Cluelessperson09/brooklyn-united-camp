@@ -1287,6 +1287,8 @@ function normalizeRow(row) {
       const raw = String(row[k]).trim();
       if (raw.toUpperCase() === 'VOUCHER') {
         out.tuition = 'voucher';
+      } else if (['paid','yes','true','1','y','x','✓','✔'].includes(raw.toLowerCase())) {
+        out.tuitionPaid = true;  // "PAID" in the tuition column = mark as paid, no amount
       } else {
         const num = parseFloat(raw.replace(/[$,]/g, ''));
         if (!isNaN(num)) out.tuition = num;

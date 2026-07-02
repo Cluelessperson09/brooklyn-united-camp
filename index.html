@@ -1074,10 +1074,17 @@ function isLeaderCamper(c) {
 }
 
 function renderAdminTable() {
-  let campers = visibleCampers();
-  if (searchQuery) {
+  let campers;
+  if (userProfile?.role === 'leader' && searchQuery) {
+    // Leaders can search across ALL campers by name
     const q = searchQuery.toLowerCase();
-    campers = campers.filter(c => c.name.toLowerCase().includes(q));
+    campers = allCampers.filter(c => c.name.toLowerCase().includes(q));
+  } else {
+    campers = visibleCampers();
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      campers = campers.filter(c => c.name.toLowerCase().includes(q));
+    }
   }
   const tbody = document.getElementById('admin-tbody');
   if (!campers.length) {
@@ -1397,9 +1404,17 @@ async function confirmUpload() {
 }
 
 function renderRosterTable() {
-  let campers = userProfile?.role === 'leader' ? allCampers.filter(c => isLeaderCamper(c)) : [...allCampers];
-  document.getElementById('roster-count').textContent = campers.length;
-  if (rosterSearchQuery) {
+  const leaderCampers = userProfile?.role === 'leader' ? allCampers.filter(c => isLeaderCamper(c)) : null;
+  let campers;
+  if (leaderCampers && rosterSearchQuery) {
+    // Leaders searching: look across ALL campers by name
+    const q = rosterSearchQuery.toLowerCase();
+    campers = allCampers.filter(c => c.name.toLowerCase().includes(q));
+  } else {
+    campers = leaderCampers ? [...leaderCampers] : [...allCampers];
+  }
+  document.getElementById('roster-count').textContent = leaderCampers ? leaderCampers.length : allCampers.length;
+  if (rosterSearchQuery && !leaderCampers) {
     const q = rosterSearchQuery.toLowerCase();
     campers = campers.filter(c => c.name.toLowerCase().includes(q));
   }

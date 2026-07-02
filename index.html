@@ -1056,6 +1056,7 @@ function selectGroup(g) {
 
 function visibleCampers() {
   return allCampers.filter(c => {
+    if (userProfile?.role === 'leader' && !isLeaderCamper(c)) return false;
     if (selectedSite !== 'all' && c.site !== selectedSite) return false;
     if (selectedGroup !== 'all' && c.group !== selectedGroup) return false;
     return true;

@@ -104,6 +104,8 @@
     .badge-gray { background: #f3f4f6; color: #6b7280; }
     .badge-purple { background: #ede9fe; color: #5b21b6; }
     .badge-orange { background: #ffedd5; color: #9a3412; }
+    .badge-voucher { display:inline-block; padding:2px 8px; border-radius:99px; font-size:11px; font-weight:700; background:#ede9fe; color:#5b21b6; }
+    .badge-scholarship { display:inline-block; padding:2px 8px; border-radius:99px; font-size:11px; font-weight:700; background:#d1fae5; color:#065f46; }
 
     .pill { padding: 5px 14px; border-radius: 99px; border: 1.5px solid #e5e7eb; font-size: 12px; font-weight: 600; cursor: pointer; background: #fff; color: #6b7280; transition: all .15s; }
     .pill.active { background: #3b5bf5; color: #fff; border-color: #3b5bf5; }
@@ -1104,6 +1106,8 @@ function renderAdminTable() {
       <td style="text-align:center;">
         ${c.tuition === 'voucher'
           ? '<span class="badge-voucher" style="font-size:11px;">🎫 Voucher</span>'
+          : c.tuition === 'scholarship'
+          ? '<span class="badge-scholarship" style="font-size:11px;">🎓 Scholarship</span>'
           : c.tuitionPaid
             ? '<span class="pay-paid">✓ Paid</span>'
             : (c.tuition ? '<span class="pay-unpaid">Unpaid</span>' : '<span style="color:#9ca3af;font-size:12px;">—</span>')}
@@ -1123,7 +1127,7 @@ function renderAdminTable() {
 function updateAdminStats() {
   const campers = visibleCampers();
   const present = campers.filter(c => attendanceData[c.id]?.present).length;
-  const paid    = campers.filter(c => c.tuitionPaid || c.tuition === 'voucher').length;
+  const paid    = campers.filter(c => c.tuitionPaid || c.tuition === 'voucher' || c.tuition === 'scholarship').length;
   document.getElementById('a-total').textContent   = campers.length;
   document.getElementById('a-present').textContent = present;
   document.getElementById('a-absent').textContent  = campers.length - present;
@@ -1240,7 +1244,7 @@ function updateLeaderStats() {
   const campers = getLeaderCampers();
   document.getElementById('l-total').textContent   = campers.length;
   document.getElementById('l-present').textContent = campers.filter(c => attendanceData[c.id]?.present).length;
-  document.getElementById('l-paid').textContent    = campers.filter(c => c.tuitionPaid || c.tuition === 'voucher').length;
+  document.getElementById('l-paid').textContent    = campers.filter(c => c.tuitionPaid || c.tuition === 'voucher' || c.tuition === 'scholarship').length;
 }
 
 async function markAllLeader(present) {
@@ -1287,6 +1291,8 @@ function normalizeRow(row) {
       const raw = String(row[k]).trim();
       if (raw.toUpperCase() === 'VOUCHER') {
         out.tuition = 'voucher';
+      } else if (['scholarship','schol','scholar'].includes(raw.toLowerCase())) {
+        out.tuition = 'scholarship';
       } else if (['paid','yes','true','1','y','x','✓','✔'].includes(raw.toLowerCase())) {
         out.tuitionPaid = true;  // "PAID" in the tuition column = mark as paid, no amount
       } else {
@@ -1314,8 +1320,8 @@ function previewRoster(data, filename) {
   const defaultGroupVal = document.getElementById('upload-group')?.value || '—';
   document.getElementById('preview-body').innerHTML = preview.map(r => {
     const td = (v,italic) => `<td style="padding:7px 12px;border-top:1px solid #f1f5f9;${italic?'color:#9ca3af;font-style:italic;':''}">${v}</td>`;
-    const tuitionDisp = r.tuition === 'voucher' ? '<span class="badge-voucher">🎫 Voucher</span>' : (r.tuition != null ? '$'+Number(r.tuition).toFixed(2) : '—');
-    const paidDisp = (r.tuition === 'voucher' || r.tuitionPaid) ? '<span class="pay-paid">✓ Paid</span>' : '<span style="color:#9ca3af;font-size:12px;">—</span>';
+    const tuitionDisp = r.tuition === 'voucher' ? '<span class="badge-voucher">🎫 Voucher</span>' : r.tuition === 'scholarship' ? '<span class="badge-scholarship">🎓 Scholarship</span>' : (r.tuition != null ? '$'+Number(r.tuition).toFixed(2) : '—');
+    const paidDisp = (r.tuition === 'voucher' || r.tuition === 'scholarship' || r.tuitionPaid) ? '<span class="pay-paid">✓ Paid</span>' : '<span style="color:#9ca3af;font-size:12px;">—</span>';
     return `<tr>${td(esc(r.name||''))}${td(esc(defaultSiteVal),true)}${td(esc(defaultGroupVal),true)}${td(esc(r.notes||'—'))}${td(tuitionDisp)}${td(paidDisp)}</tr>`;
   }).join('') + (rows.length > 8 ? `<tr><td colspan="6" style="padding:8px 12px;color:#9ca3af;font-size:12px;">…and ${rows.length - 8} more</td></tr>` : '');
   document.getElementById('upload-zone').style.display = 'none';
@@ -1350,8 +1356,8 @@ async function confirmUpload() {
           addedAt: firebase.firestore.FieldValue.serverTimestamp()
         };
         if (r.tuition != null) {
-          doc.tuition = r.tuition;                                        // number or 'voucher'
-          doc.tuitionPaid = r.tuition === 'voucher' || !!r.tuitionPaid;  // vouchers + explicit paid column
+          doc.tuition = r.tuition;                                                                    // number, 'voucher', or 'scholarship'
+          doc.tuitionPaid = r.tuition === 'voucher' || r.tuition === 'scholarship' || !!r.tuitionPaid; // free-ride types auto-paid
         } else if (r.tuitionPaid) {
           doc.tuitionPaid = true;  // paid flag even without a tuition amount
         }
@@ -1392,8 +1398,8 @@ function renderRosterTable() {
       <td><span class="badge badge-blue">${esc(c.group||'—')}</span></td>
       <td class="hide-mobile text-gray text-sm">${esc(c.notes||'—')}</td>
       <td style="text-align:right;">
-        ${c.tuition === 'voucher'
-          ? `<span class="badge-voucher">🎫 Voucher</span>${userProfile?.role==='admin' ? `<br><button class="btn btn-sm" style="font-size:10px;margin-top:3px;padding:2px 6px;" onclick="saveTuition('${c.id}','clear')">✕</button>` : ''}`
+        ${c.tuition === 'voucher' || c.tuition === 'scholarship'
+          ? `<span class="${c.tuition === 'scholarship' ? 'badge-scholarship' : 'badge-voucher'}">${c.tuition === 'scholarship' ? '🎓 Scholarship' : '🎫 Voucher'}</span>${userProfile?.role==='admin' ? `<br><button class="btn btn-sm" style="font-size:10px;margin-top:3px;padding:2px 6px;" onclick="saveTuition('${c.id}','clear')">✕</button>` : ''}`
           : `<input type="number" class="tuition-input" value="${c.tuition!=null&&c.tuition!==''?c.tuition:''}" placeholder="$0"
               onchange="saveTuition('${c.id}',this.value)"
               ${userProfile?.role==='admin'?'':'disabled'}>
@@ -2044,7 +2050,7 @@ function buildReportRows(recByDate, dates) {
         campers.forEach(c => { if (recByDate[d]?.[c.id]?.present) present++; });
       });
       // paid: permanent per-camper tuition record, not per-day
-      const paid = campers.filter(c => c.tuitionPaid || c.tuition === 'voucher').length;
+      const paid = campers.filter(c => c.tuitionPaid || c.tuition === 'voucher' || c.tuition === 'scholarship').length;
       const possible = isMulti ? campers.length * daysWithData : campers.length;
       sTotal += campers.length; sPresent += present; sPaid += paid; sPossible += possible;
       rows.push({ site, group, total: campers.length, present, paid, possible, daysWithData, isSub: false });
@@ -2309,8 +2315,8 @@ function renderRevenueReport() {
   // Guard: elements might not exist if admin hasn't opened report yet
   if (!document.getElementById('rev-expected')) return;
 
-  const voucherCampers = allCampers.filter(c => c.tuition === 'voucher');
-  const payingCampers  = allCampers.filter(c => c.tuition != null && c.tuition !== 'voucher');
+  const voucherCampers = allCampers.filter(c => c.tuition === 'voucher' || c.tuition === 'scholarship');
+  const payingCampers  = allCampers.filter(c => c.tuition != null && c.tuition !== 'voucher' && c.tuition !== 'scholarship');
   const voucherCount   = voucherCampers.length;
   const totalExpected  = payingCampers.reduce((s,c) => s + (Number(c.tuition)||0), 0);
   const totalPaid      = payingCampers.filter(c => c.tuitionPaid).reduce((s,c) => s + (Number(c.tuition)||0), 0);
@@ -2331,7 +2337,7 @@ function renderRevenueReport() {
     const key   = site + '||' + group;
     if (!map[key]) map[key] = { site, group, count:0, expected:0, paidCount:0, collected:0, vouchers:[], paying:[] };
     map[key].count++;
-    if (c.tuition === 'voucher') {
+    if (c.tuition === 'voucher' || c.tuition === 'scholarship') {
       map[key].vouchers.push(c);
     } else {
       map[key].paying.push(c);
@@ -2345,12 +2351,12 @@ function renderRevenueReport() {
   if (!rows.length) { tbody.innerHTML = '<tr class="empty-row"><td colspan="7">No campers yet.</td></tr>'; return; }
 
   tbody.innerHTML = rows.map(r => {
-    const vBadge = r.vouchers.length ? `<span class="badge-voucher" style="font-size:10px;cursor:pointer;" onclick="toggleVoucherList('vl-${r.site.replace(/\s/g,'')}-${r.group.replace(/\s/g,'')}')">🎫 ${r.vouchers.length} voucher${r.vouchers.length>1?'s':''} ▾</span>` : '';
+    const vBadge = r.vouchers.length ? `<span class="badge-voucher" style="font-size:10px;cursor:pointer;" onclick="toggleVoucherList('vl-${r.site.replace(/\s/g,'')}-${r.group.replace(/\s/g,'')}')">🎫/🎓 ${r.vouchers.length} free-ride ▾</span>` : '';
     const vList  = r.vouchers.length ? `<tr id="vl-${r.site.replace(/\s/g,'')}-${r.group.replace(/\s/g,'')}" style="display:none;background:#faf5ff;">
       <td colspan="7" style="padding:8px 24px;">
-        <strong style="font-size:11px;color:#7c3aed;">Voucher Campers:</strong>
+        <strong style="font-size:11px;color:#7c3aed;">Voucher / Scholarship Campers:</strong>
         <ul style="margin:4px 0 0 0;padding-left:20px;font-size:12px;color:#6b7280;">
-          ${r.vouchers.map(c=>`<li>${esc(c.name)}</li>`).join('')}
+          ${r.vouchers.map(c=>`<li>${esc(c.name)} <span style="color:#9ca3af;">(${c.tuition === 'scholarship' ? 'Scholarship' : 'Voucher'})</span></li>`).join('')}
         </ul>
       </td>
     </tr>` : '';

@@ -726,7 +726,7 @@
           <div class="table-wrap">
             <div style="padding:14px 18px;background:#fff;border-bottom:1px solid #e5e7eb;font-weight:700;font-size:14px;">Breakdown by Site / Group</div>
             <table>
-              <thead><tr><th>Site</th><th>Group</th><th style="text-align:right;">Campers</th><th style="text-align:right;">Expected</th><th style="text-align:right;">Paid (count)</th><th style="text-align:right;">Collected</th><th style="text-align:right;">Outstanding</th></tr></thead>
+              <thead><tr><th>Site</th><th>Group</th><th style="text-align:right;">Campers</th><th style="text-align:right;">Expected</th><th style="text-align:right;">Paid</th><th style="text-align:right;">🎫 Voucher</th><th style="text-align:right;">🎓 Scholar</th><th style="text-align:right;">Collected</th><th style="text-align:right;">Outstanding</th></tr></thead>
               <tbody id="rev-tbody"></tbody>
             </table>
           </div>
@@ -2357,9 +2357,13 @@ function renderRevenueReport() {
     const site  = c.site  || '—';
     const group = c.group || '—';
     const key   = site + '||' + group;
-    if (!map[key]) map[key] = { site, group, count:0, expected:0, paidCount:0, collected:0, vouchers:[], paying:[] };
+    if (!map[key]) map[key] = { site, group, count:0, expected:0, paidCount:0, collected:0, voucherCount:0, scholarshipCount:0, vouchers:[], paying:[] };
     map[key].count++;
-    if (c.tuition === 'voucher' || c.tuition === 'scholarship') {
+    if (c.tuition === 'voucher') {
+      map[key].voucherCount++;
+      map[key].vouchers.push(c);
+    } else if (c.tuition === 'scholarship') {
+      map[key].scholarshipCount++;
       map[key].vouchers.push(c);
     } else {
       map[key].paying.push(c);
@@ -2385,18 +2389,22 @@ function renderRevenueReport() {
     return `<tr>
       <td><span style="font-size:11px;font-weight:700;color:${siteColor(r.site)}">${esc(r.site)}</span></td>
       <td><span class="badge badge-blue">${esc(r.group)}</span></td>
-      <td style="text-align:right;">${r.count} ${vBadge}</td>
+      <td style="text-align:right;">${r.count}</td>
       <td style="text-align:right;">$${r.expected.toFixed(2)}</td>
-      <td style="text-align:right;">${r.paidCount}</td>
+      <td style="text-align:right;">${r.paidCount || '<span style="color:#9ca3af;">—</span>'}</td>
+      <td style="text-align:right;">${r.voucherCount ? `<span class="badge-voucher" style="font-size:11px;cursor:pointer;" onclick="toggleVoucherList('vl-${r.site.replace(/\s/g,'')}-${r.group.replace(/\s/g,'')}')">${r.voucherCount} ▾</span>` : '<span style="color:#9ca3af;">—</span>'}</td>
+      <td style="text-align:right;">${r.scholarshipCount ? `<span class="badge-scholarship" style="font-size:11px;cursor:pointer;" onclick="toggleVoucherList('vl-${r.site.replace(/\s/g,'')}-${r.group.replace(/\s/g,'')}')">${r.scholarshipCount} ▾</span>` : '<span style="color:#9ca3af;">—</span>'}</td>
       <td style="text-align:right;color:#059669;">$${r.collected.toFixed(2)}</td>
       <td style="text-align:right;color:#dc2626;">$${(r.expected-r.collected).toFixed(2)}</td>
     </tr>${vList}`;
   }).join('') +
   `<tr style="font-weight:700;background:#f8fafc;border-top:2px solid #e5e7eb;">
     <td colspan="2">Grand Total</td>
-    <td style="text-align:right;">${allCampers.length}${voucherCount?` <span class="badge-voucher" style="font-size:10px;">🎫 ${voucherCount}</span>`:''}  </td>
+    <td style="text-align:right;">${allCampers.length}</td>
     <td style="text-align:right;">$${totalExpected.toFixed(2)}</td>
     <td style="text-align:right;">${payingCampers.filter(c=>c.tuitionPaid).length}</td>
+    <td style="text-align:right;">${allCampers.filter(c=>c.tuition==='voucher').length || '—'}</td>
+    <td style="text-align:right;">${allCampers.filter(c=>c.tuition==='scholarship').length || '—'}</td>
     <td style="text-align:right;color:#059669;">$${totalPaid.toFixed(2)}</td>
     <td style="text-align:right;color:#dc2626;">$${outstanding.toFixed(2)}</td>
   </tr>`;

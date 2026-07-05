@@ -596,6 +596,16 @@
           </table>
         </div>
 
+        <div class="table-wrap" style="margin-top:20px;">
+          <div style="padding:14px 18px;background:#fff;border-bottom:1px solid #e5e7eb;">
+            <p style="font-weight:700;">Admins</p>
+          </div>
+          <table>
+            <thead><tr><th>Name</th><th>Email</th><th style="width:120px;"></th></tr></thead>
+            <tbody id="admins-tbody"></tbody>
+          </table>
+        </div>
+
         <!-- Email Notifications Settings (admin only) -->
         <div class="card mt-16" style="margin-top:20px;">
           <div class="section-title">📧 Email Notifications</div>
@@ -1874,6 +1884,7 @@ function renderLeaderGroupChecks() {
 function renderLeadersTab() {
   const pending = allUsers.filter(u => u.role === 'pending');
   const leaders = allUsers.filter(u => u.role === 'leader');
+  const admins  = allUsers.filter(u => u.role === 'admin');
 
   document.getElementById('pending-tbody').innerHTML = pending.length
     ? pending.map(u => `<tr>
@@ -1925,6 +1936,24 @@ function renderLeadersTab() {
       </tr>`;
     }).join('')
     : '<tr class="empty-row"><td colspan="5">No active leaders yet</td></tr>';
+
+  document.getElementById('admins-tbody').innerHTML = admins.length
+    ? admins.map(u => `<tr>
+        <td class="camper-name">${esc(u.name||'—')}</td>
+        <td class="text-gray">${esc(u.email)}</td>
+        <td style="display:flex;gap:4px;flex-wrap:wrap;">
+          <button class="btn btn-outline btn-sm" onclick="demoteToLeader('${u.uid}')">Make Leader</button>
+          <button class="btn btn-red btn-sm" onclick="removeUser('${u.uid}')">Remove</button>
+        </td>
+      </tr>`).join('')
+    : '<tr class="empty-row"><td colspan="3">No admins yet</td></tr>';
+}
+
+async function demoteToLeader(uid) {
+  if (!confirm('Demote this admin to leader? They will lose admin access.')) return;
+  await db.collection('users').doc(uid).update({ role: 'leader', sites: [], groups: [], site: '', group: '' });
+  await fetchUsers(); renderLeadersTab();
+  toast('✓ Admin demoted to leader');
 }
 
 function updatePendingGroups(uid) {

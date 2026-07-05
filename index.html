@@ -1930,8 +1930,33 @@ function renderLeadersTab() {
         <td>${siteHtml||'—'}</td>
         <td>${groupHtml||'—'}</td>
         <td style="display:flex;gap:4px;flex-wrap:wrap;">
+          <button class="btn btn-outline btn-sm" onclick="toggleLeaderEdit('${u.uid}')">Edit</button>
           <button class="btn btn-primary btn-sm" onclick="promoteToAdmin('${u.uid}')">Make Admin</button>
           <button class="btn btn-red btn-sm" onclick="removeUser('${u.uid}')">Remove</button>
+        </td>
+      </tr>
+      <tr id="leader-edit-row-${u.uid}" style="display:none;background:#f8fafc;">
+        <td colspan="5" style="padding:14px 18px;">
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <div>
+              <div style="font-size:10px;font-weight:700;color:#6b7280;letter-spacing:.05em;margin-bottom:4px;">SITES</div>
+              <div style="display:flex;gap:16px;flex-wrap:wrap;">
+                ${Object.keys(SITES).map(s => `<label style="font-size:13px;cursor:pointer;display:flex;align-items:center;gap:5px;">
+                  <input type="checkbox" class="le-site-${u.uid}" value="${esc(s)}" ${sites.includes(s)?'checked':''} onchange="updateLeaderEditGroups('${u.uid}')"> ${esc(s)}
+                </label>`).join('')}
+              </div>
+            </div>
+            <div>
+              <div style="font-size:10px;font-weight:700;color:#6b7280;letter-spacing:.05em;margin-bottom:4px;">GROUPS</div>
+              <div id="le-groups-${u.uid}" style="display:flex;gap:8px;flex-wrap:wrap;">
+                ${Object.entries(SITES).filter(([s])=>sites.includes(s)).flatMap(([s,gs])=>gs).map(g=>`<label style="font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="checkbox" class="le-group-${u.uid}" value="${esc(g)}" ${groups.includes(g)?'checked':''}> ${esc(g)}</label>`).join('')}
+              </div>
+            </div>
+            <div style="display:flex;gap:6px;">
+              <button class="btn btn-primary btn-sm" onclick="saveLeaderEdit('${u.uid}')">Save</button>
+              <button class="btn btn-outline btn-sm" onclick="toggleLeaderEdit('${u.uid}')">Cancel</button>
+            </div>
+          </div>
         </td>
       </tr>`;
     }).join('')
@@ -1954,6 +1979,30 @@ async function demoteToLeader(uid) {
   await db.collection('users').doc(uid).update({ role: 'leader', sites: [], groups: [], site: '', group: '' });
   await fetchUsers(); renderLeadersTab();
   toast('✓ Admin demoted to leader');
+}
+
+function toggleLeaderEdit(uid) {
+  const row = document.getElementById(`leader-edit-row-${uid}`);
+  if (!row) return;
+  row.style.display = row.style.display === 'none' ? 'table-row' : 'none';
+}
+
+function updateLeaderEditGroups(uid) {
+  const checkedSites = [...document.querySelectorAll(`.le-site-${uid}:checked`)].map(el => el.value);
+  const container = document.getElementById(`le-groups-${uid}`);
+  if (!container) return;
+  const groups = checkedSites.flatMap(s => SITES[s] || []);
+  if (!groups.length) { container.innerHTML = '<span style="font-size:12px;color:#9ca3af;">Select a site first</span>'; return; }
+  container.innerHTML = groups.map(g => `<label style="font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="checkbox" class="le-group-${uid}" value="${esc(g)}"> ${esc(g)}</label>`).join('');
+}
+
+async function saveLeaderEdit(uid) {
+  const sites  = [...document.querySelectorAll(`.le-site-${uid}:checked`)].map(el => el.value);
+  const groups = [...document.querySelectorAll(`.le-group-${uid}:checked`)].map(el => el.value);
+  if (!sites.length || !groups.length) { toast('Select at least one site and one group'); return; }
+  await db.collection('users').doc(uid).update({ sites, groups, site: sites[0], group: groups[0] });
+  await fetchUsers(); renderLeadersTab();
+  toast('✓ Leader assignment updated');
 }
 
 function updatePendingGroups(uid) {

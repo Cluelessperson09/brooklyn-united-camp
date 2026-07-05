@@ -244,7 +244,7 @@
           <select id="add-camper-site" class="input" onchange="updateLeaderGroupOpts('add-camper-group','add-camper-site')">
             <option value="">— Select site —</option>
             <option value="Elim Church">Elim Church</option>
-            <option value="Canarise">Canarise</option>
+            <option value="Canarsie">Canarsie</option>
           </select>
         </div>
         <div>
@@ -277,7 +277,7 @@
         <select id="move-site" class="input" onchange="updateLeaderGroupOpts('move-group','move-site')">
           <option value="">Select site…</option>
           <option value="Elim Church">Elim Church</option>
-          <option value="Canarise">Canarise</option>
+          <option value="Canarsie">Canarsie</option>
         </select>
       </div>
       <div>
@@ -476,7 +476,7 @@
                 <select id="upload-site" class="input">
                   <option value="">— Select default site —</option>
                   <option value="Elim Church">Elim Church</option>
-                  <option value="Canarise">Canarise</option>
+                  <option value="Canarsie">Canarsie</option>
                 </select>
               </div>
               <div>
@@ -563,7 +563,7 @@
               <label class="field-label">Sites</label>
               <div class="site-check-row">
                 <label><input type="checkbox" id="l-site-ps289" value="Elim Church" onchange="renderLeaderGroupChecks()"> Elim Church</label>
-                <label><input type="checkbox" id="l-site-canarise" value="Canarise" onchange="renderLeaderGroupChecks()"> Canarise</label>
+                <label><input type="checkbox" id="l-site-canarise" value="Canarsie" onchange="renderLeaderGroupChecks()"> Canarsie</label>
               </div>
             </div>
             <div style="grid-column:1/-1;">
@@ -744,7 +744,7 @@
                 <select id="exp-site" class="input" style="width:auto;">
                   <option value="all">All Sites</option>
                   <option value="Elim Church">Elim Church</option>
-                  <option value="Canarise">Canarise</option>
+                  <option value="Canarsie">Canarsie</option>
                 </select>
               </div>
               <div style="align-self:flex-end;"><button id="exp-btn" class="btn btn-primary">⬇ Export CSV</button></div>
@@ -762,10 +762,10 @@
 // ─── CONSTANTS ───────────────────────────────
 const SITES = {
   'Elim Church':   ['4/5', 'Younger Girls', 'Older Girls', 'Younger Boys', 'Older Boys', 'Drum Camp', 'Dance Camp', 'Sports Camp'],
-  'Canarise': ['Canarise Girls', 'Canarise Boys']
+  'Canarsie': ['Canarsie Girls', 'Canarsie Boys']
 };
 
-const SITE_COLORS = { 'Elim Church': '#7c3aed', 'Canarise': '#0891b2' };
+const SITE_COLORS = { 'Elim Church': '#7c3aed', 'Canarsie': '#0891b2' };
 
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyBzX0e-s10LsnbMbM6r3fXbegxSYC0tEFk",
@@ -1023,7 +1023,7 @@ function siteColor(site) { return SITE_COLORS[site] || '#6b7280'; }
 
 // ─── SITE + GROUP PILLS ──────────────────────
 function renderSitePills() {
-  const siteClass = s => s === 'Elim Church' ? 'site-ps289' : s === 'Canarise' ? 'site-canarise' : '';
+  const siteClass = s => s === 'Elim Church' ? 'site-ps289' : s === 'Canarsie' ? 'site-canarise' : '';
   // Leaders only see their assigned sites
   if (userProfile?.role === 'leader') {
     const leaderSites = userProfile.sites?.length ? userProfile.sites : (userProfile.site ? [userProfile.site] : []);
@@ -1037,7 +1037,7 @@ function renderSitePills() {
     return;
   }
   document.getElementById('site-pills').innerHTML =
-    ['all', 'Elim Church', 'Canarise'].map(s => `
+    ['all', 'Elim Church', 'Canarsie'].map(s => `
       <button class="pill ${siteClass(s)} ${s === selectedSite ? 'active' : ''}" onclick="selectSite('${s}')">
         ${s === 'all' ? '🏕 All Sites' : s}
       </button>
@@ -1834,7 +1834,7 @@ async function addLeader() {
   const pass  = document.getElementById('l-pass').value;
   const sites = [];
   if (document.getElementById('l-site-ps289')?.checked) sites.push('Elim Church');
-  if (document.getElementById('l-site-canarise')?.checked) sites.push('Canarise');
+  if (document.getElementById('l-site-canarise')?.checked) sites.push('Canarsie');
   const groups = [...document.querySelectorAll('.l-group-check:checked')].map(el => el.value);
   hideErr('leader-error');
   if (!name||!email||!pass||!sites.length||!groups.length) { showErr('leader-error','All fields are required'); return; }
@@ -1863,7 +1863,7 @@ async function addLeader() {
 function renderLeaderGroupChecks() {
   const selectedSites = [];
   if (document.getElementById('l-site-ps289')?.checked) selectedSites.push('Elim Church');
-  if (document.getElementById('l-site-canarise')?.checked) selectedSites.push('Canarise');
+  if (document.getElementById('l-site-canarise')?.checked) selectedSites.push('Canarsie');
   const groups = selectedSites.flatMap(s => SITES[s] || []);
   const el = document.getElementById('l-group-checks');
   if (!el) return;

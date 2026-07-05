@@ -2440,7 +2440,7 @@ function renderRevenueReport() {
     <td colspan="2">Grand Total</td>
     <td style="text-align:right;">${allCampers.length}</td>
     <td style="text-align:right;">$${totalExpected.toFixed(2)}</td>
-    <td style="text-align:right;">${payingCampers.filter(c=>c.tuitionPaid).length}</td>
+    <td style="text-align:right;">${allCampers.filter(c=>c.tuitionPaid && c.tuition!=='voucher' && c.tuition!=='scholarship').length}</td>
     <td style="text-align:right;">${allCampers.filter(c=>c.tuition==='voucher').length || '—'}</td>
     <td style="text-align:right;">${allCampers.filter(c=>c.tuition==='scholarship').length || '—'}</td>
     <td style="text-align:right;color:#059669;">$${totalPaid.toFixed(2)}</td>

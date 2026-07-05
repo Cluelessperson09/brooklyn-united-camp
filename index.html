@@ -243,7 +243,7 @@
           <label class="field-label">Site <span style="color:#ef4444;">*</span></label>
           <select id="add-camper-site" class="input" onchange="updateLeaderGroupOpts('add-camper-group','add-camper-site')">
             <option value="">— Select site —</option>
-            <option value="Elim Church">Elim Church</option>
+            <option value="Bedstuy">Bedstuy</option>
             <option value="Canarsie">Canarsie</option>
           </select>
         </div>
@@ -276,7 +276,7 @@
         <label class="field-label">New Site</label>
         <select id="move-site" class="input" onchange="updateLeaderGroupOpts('move-group','move-site')">
           <option value="">Select site…</option>
-          <option value="Elim Church">Elim Church</option>
+          <option value="Bedstuy">Bedstuy</option>
           <option value="Canarsie">Canarsie</option>
         </select>
       </div>
@@ -475,7 +475,7 @@
                 <label class="field-label">Default Site (for rows without auto-detected site)</label>
                 <select id="upload-site" class="input">
                   <option value="">— Select default site —</option>
-                  <option value="Elim Church">Elim Church</option>
+                  <option value="Bedstuy">Bedstuy</option>
                   <option value="Canarsie">Canarsie</option>
                 </select>
               </div>
@@ -562,7 +562,7 @@
             <div style="grid-column:1/-1;">
               <label class="field-label">Sites</label>
               <div class="site-check-row">
-                <label><input type="checkbox" id="l-site-ps289" value="Elim Church" onchange="renderLeaderGroupChecks()"> Elim Church</label>
+                <label><input type="checkbox" id="l-site-ps289" value="Bedstuy" onchange="renderLeaderGroupChecks()"> Bedstuy</label>
                 <label><input type="checkbox" id="l-site-canarise" value="Canarsie" onchange="renderLeaderGroupChecks()"> Canarsie</label>
               </div>
             </div>
@@ -743,7 +743,7 @@
                 <label class="field-label">Site Filter</label>
                 <select id="exp-site" class="input" style="width:auto;">
                   <option value="all">All Sites</option>
-                  <option value="Elim Church">Elim Church</option>
+                  <option value="Bedstuy">Bedstuy</option>
                   <option value="Canarsie">Canarsie</option>
                 </select>
               </div>
@@ -761,11 +761,11 @@
 <script>
 // ─── CONSTANTS ───────────────────────────────
 const SITES = {
-  'Elim Church':   ['4/5', 'Younger Girls', 'Older Girls', 'Younger Boys', 'Older Boys', 'Drum Camp', 'Dance Camp', 'Sports Camp'],
+  'Bedstuy':   ['4/5', 'Younger Girls', 'Older Girls', 'Younger Boys', 'Older Boys', 'Drum Camp', 'Dance Camp', 'Sports Camp'],
   'Canarsie': ['Canarsie Girls', 'Canarsie Boys']
 };
 
-const SITE_COLORS = { 'Elim Church': '#7c3aed', 'Canarsie': '#0891b2' };
+const SITE_COLORS = { 'Bedstuy': '#7c3aed', 'Canarsie': '#0891b2' };
 
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyBzX0e-s10LsnbMbM6r3fXbegxSYC0tEFk",
@@ -1023,7 +1023,7 @@ function siteColor(site) { return SITE_COLORS[site] || '#6b7280'; }
 
 // ─── SITE + GROUP PILLS ──────────────────────
 function renderSitePills() {
-  const siteClass = s => s === 'Elim Church' ? 'site-ps289' : s === 'Canarsie' ? 'site-canarise' : '';
+  const siteClass = s => s === 'Bedstuy' ? 'site-ps289' : s === 'Canarsie' ? 'site-canarise' : '';
   // Leaders only see their assigned sites
   if (userProfile?.role === 'leader') {
     const leaderSites = userProfile.sites?.length ? userProfile.sites : (userProfile.site ? [userProfile.site] : []);
@@ -1037,7 +1037,7 @@ function renderSitePills() {
     return;
   }
   document.getElementById('site-pills').innerHTML =
-    ['all', 'Elim Church', 'Canarsie'].map(s => `
+    ['all', 'Bedstuy', 'Canarsie'].map(s => `
       <button class="pill ${siteClass(s)} ${s === selectedSite ? 'active' : ''}" onclick="selectSite('${s}')">
         ${s === 'all' ? '🏕 All Sites' : s}
       </button>
@@ -1833,7 +1833,7 @@ async function addLeader() {
   const email = document.getElementById('l-email').value.trim();
   const pass  = document.getElementById('l-pass').value;
   const sites = [];
-  if (document.getElementById('l-site-ps289')?.checked) sites.push('Elim Church');
+  if (document.getElementById('l-site-ps289')?.checked) sites.push('Bedstuy');
   if (document.getElementById('l-site-canarise')?.checked) sites.push('Canarsie');
   const groups = [...document.querySelectorAll('.l-group-check:checked')].map(el => el.value);
   hideErr('leader-error');
@@ -1862,7 +1862,7 @@ async function addLeader() {
 
 function renderLeaderGroupChecks() {
   const selectedSites = [];
-  if (document.getElementById('l-site-ps289')?.checked) selectedSites.push('Elim Church');
+  if (document.getElementById('l-site-ps289')?.checked) selectedSites.push('Bedstuy');
   if (document.getElementById('l-site-canarise')?.checked) selectedSites.push('Canarsie');
   const groups = selectedSites.flatMap(s => SITES[s] || []);
   const el = document.getElementById('l-group-checks');

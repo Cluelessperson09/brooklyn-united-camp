@@ -941,7 +941,7 @@ function wireEvents() {
 }
 
 async function doLogin() {
-  const email = document.getElementById('login-email').value.trim();
+  const email = document.getElementById('login-email').value.trim().toLowerCase();
   const pass   = document.getElementById('login-password').value;
   hideErr('login-error');
   try { await auth.signInWithEmailAndPassword(email, pass); }
@@ -950,7 +950,7 @@ async function doLogin() {
 
 async function doRegister() {
   const name  = document.getElementById('reg-name').value.trim();
-  const email = document.getElementById('reg-email').value.trim();
+  const email = document.getElementById('reg-email').value.trim().toLowerCase();
   const pass  = document.getElementById('reg-password').value;
   hideErr('register-error');
   if (!name||!email||!pass) { showErr('register-error','All fields are required'); return; }
@@ -1840,7 +1840,7 @@ async function clearRoster() {
 // ─── LEADERS TAB ─────────────────────────────
 async function addLeader() {
   const name  = document.getElementById('l-name').value.trim();
-  const email = document.getElementById('l-email').value.trim();
+  const email = document.getElementById('l-email').value.trim().toLowerCase();
   const pass  = document.getElementById('l-pass').value;
   const sites = [];
   if (document.getElementById('l-site-ps289')?.checked) sites.push('Bedstuy');

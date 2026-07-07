@@ -1370,22 +1370,32 @@ function previewRoster(data, filename) {
   const rows = data.map(normalizeRow).filter(r => r.name);
   if (!rows.length) { toast('No valid "Name" column found. Check your file.'); return; }
   pendingRows = rows;
-  document.getElementById('preview-title').textContent = `${filename} — ${rows.length} campers found`;
+  const existingNames = new Set(allCampers.map(c => c.name.trim().toLowerCase()));
+  const newCount = rows.filter(r => !existingNames.has(r.name.trim().toLowerCase())).length;
+  const dupCount = rows.length - newCount;
+  let titleSuffix = `${rows.length} campers found`;
+  if (dupCount > 0) titleSuffix += ` — <span style="color:#16a34a;font-weight:700;">${newCount} new</span>, <span style="color:#9ca3af;">${dupCount} already exist (will skip)</span>`;
+  document.getElementById('preview-title').innerHTML = `${esc(filename)} — ${titleSuffix}`;
   document.getElementById('preview-head').innerHTML =
-    '<tr>' + ['Name','Site','Group','Notes','Tuition','Paid'].map(c => `<th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;">${c}</th>`).join('') + '</tr>';
+    '<tr>' + ['','Name','Site','Group','Notes','Tuition','Paid'].map(c => `<th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;">${c}</th>`).join('') + '</tr>';
   const preview = rows.slice(0, 8);
   const defaultSiteVal  = document.getElementById('upload-site')?.value || '—';
   const defaultGroupVal = document.getElementById('upload-group')?.value || '—';
   document.getElementById('preview-body').innerHTML = preview.map(r => {
+    const isDup = existingNames.has(r.name.trim().toLowerCase());
+    const rowStyle = isDup ? 'opacity:0.45;' : '';
     const td = (v,italic) => `<td style="padding:7px 12px;border-top:1px solid #f1f5f9;${italic?'color:#9ca3af;font-style:italic;':''}">${v}</td>`;
+    const statusBadge = isDup
+      ? `<td style="padding:7px 12px;border-top:1px solid #f1f5f9;"><span style="font-size:10px;background:#f3f4f6;color:#6b7280;padding:2px 6px;border-radius:4px;font-weight:600;">EXISTS</span></td>`
+      : `<td style="padding:7px 12px;border-top:1px solid #f1f5f9;"><span style="font-size:10px;background:#dcfce7;color:#16a34a;padding:2px 6px;border-radius:4px;font-weight:600;">NEW</span></td>`;
     const tuitionDisp = r.tuition === 'voucher' ? '<span class="badge-voucher">🎫 Voucher</span>' : r.tuition === 'scholarship' ? '<span class="badge-scholarship">🎓 Scholarship</span>' : (r.tuition != null ? '$'+Number(r.tuition).toFixed(2) : '—');
     const paidDisp = (r.tuition === 'voucher' || r.tuition === 'scholarship' || r.tuitionPaid) ? '<span class="pay-paid">✓ Paid</span>' : '<span style="color:#9ca3af;font-size:12px;">—</span>';
     const siteVal  = r.site  || defaultSiteVal;
     const groupVal = r.group || defaultGroupVal;
     const siteFromCSV  = !!r.site;
     const groupFromCSV = !!r.group;
-    return `<tr>${td(esc(r.name||''))}${td(esc(siteVal),!siteFromCSV)}${td(esc(groupVal),!groupFromCSV)}${td(esc(r.notes||'—'))}${td(tuitionDisp)}${td(paidDisp)}</tr>`;
-  }).join('') + (rows.length > 8 ? `<tr><td colspan="6" style="padding:8px 12px;color:#9ca3af;font-size:12px;">…and ${rows.length - 8} more</td></tr>` : '');
+    return `<tr style="${rowStyle}">${statusBadge}${td(esc(r.name||''))}${td(esc(siteVal),!siteFromCSV)}${td(esc(groupVal),!groupFromCSV)}${td(esc(r.notes||'—'))}${td(tuitionDisp)}${td(paidDisp)}</tr>`;
+  }).join('') + (rows.length > 8 ? `<tr><td colspan="7" style="padding:8px 12px;color:#9ca3af;font-size:12px;">…and ${rows.length - 8} more</td></tr>` : '');
   document.getElementById('upload-zone').style.display = 'none';
   document.getElementById('upload-preview').style.display = 'block';
 }
@@ -1404,9 +1414,18 @@ async function confirmUpload() {
   const btn = document.getElementById('upload-confirm');
   btn.disabled = true; btn.textContent = 'Uploading…';
   try {
+    // Skip campers whose name already exists (case-insensitive)
+    const existingNames = new Set(allCampers.map(c => c.name.trim().toLowerCase()));
+    const newRows = pendingRows.filter(r => !existingNames.has(r.name.trim().toLowerCase()));
+    const skipped = pendingRows.length - newRows.length;
+    if (newRows.length === 0) {
+      toast(`All ${skipped} campers already exist — nothing to add`);
+      cancelUpload();
+      return;
+    }
     // Firestore batches max 500 ops; chunk if needed
     const chunks = [];
-    for (let i = 0; i < pendingRows.length; i += 499) chunks.push(pendingRows.slice(i, i+499));
+    for (let i = 0; i < newRows.length; i += 499) chunks.push(newRows.slice(i, i+499));
     for (const chunk of chunks) {
       const batch = db.batch();
       chunk.forEach(r => {
@@ -1430,7 +1449,10 @@ async function confirmUpload() {
     await fetchCampers();
     renderSitePills(); renderGroupPills(); renderAdminTable(); renderRosterTable();
     cancelUpload();
-    toast(`✓ ${pendingRows.length} campers uploaded!`);
+    const msg = skipped > 0
+      ? `✓ ${newRows.length} new campers added, ${skipped} already existed (skipped)`
+      : `✓ ${newRows.length} campers uploaded!`;
+    toast(msg);
   } catch(e) { toast('Upload failed: ' + e.message); }
   finally { btn.disabled = false; btn.textContent = 'Upload Roster'; }
 }

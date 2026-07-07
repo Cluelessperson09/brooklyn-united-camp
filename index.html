@@ -659,6 +659,7 @@
               <tbody id="daily-report-body"><tr class="empty-row"><td colspan="7">Select a date and click Load Report</td></tr></tbody>
             </table>
           </div>
+          <div id="daily-intensive-section" style="display:none;"></div>
         </div>
 
         <!-- Weekly -->
@@ -678,6 +679,7 @@
               <tbody id="weekly-report-body"><tr class="empty-row"><td colspan="8">Select a date and click Load Report</td></tr></tbody>
             </table>
           </div>
+          <div id="weekly-intensive-section" style="display:none;"></div>
         </div>
 
         <!-- Monthly -->
@@ -697,6 +699,7 @@
               <tbody id="monthly-report-body"><tr class="empty-row"><td colspan="8">Select a month and click Load Report</td></tr></tbody>
             </table>
           </div>
+          <div id="monthly-intensive-section" style="display:none;"></div>
         </div>
 
         <!-- Activity Log -->
@@ -773,6 +776,8 @@ const SITES = {
   'Canarsie':  ['Canarsie Girls', 'Canarsie Boys'],
   'Intensive': ['Dance Intensive', 'Drum Intensive']
 };
+// Sites whose members are NOT counted as regular campers
+const INTENSIVE_SITES = new Set(['Intensive']);
 
 const SITE_COLORS = { 'Bedstuy': '#7c3aed', 'Canarsie': '#0891b2', 'Intensive': '#b45309' };
 
@@ -1095,6 +1100,7 @@ function selectGroup(g) {
 function visibleCampers() {
   return allCampers.filter(c => {
     if (userProfile?.role === 'leader' && !isLeaderCamper(c)) return false;
+    if (selectedSite === 'all' && INTENSIVE_SITES.has(c.site)) return false; // Intensive excluded from "All" view
     if (selectedSite !== 'all' && c.site !== selectedSite) return false;
     if (selectedGroup !== 'all' && c.group !== selectedGroup) return false;
     return true;
@@ -1174,10 +1180,13 @@ function updateAdminStats() {
   const campers = visibleCampers();
   const present = campers.filter(c => attendanceData[c.id]?.present).length;
   const paid    = campers.filter(c => c.tuitionPaid || c.tuition === 'voucher' || c.tuition === 'scholarship').length;
+  const isIntensiveView = selectedSite !== 'all' && INTENSIVE_SITES.has(selectedSite);
   document.getElementById('a-total').textContent   = campers.length;
   document.getElementById('a-present').textContent = present;
   document.getElementById('a-absent').textContent  = campers.length - present;
   document.getElementById('a-paid').textContent    = paid;
+  document.querySelector('#admin-stats .stat-card:first-child .stat-label').textContent =
+    isIntensiveView ? 'Total Students' : 'Total Campers';
 }
 
 async function markAll(present) {
@@ -2134,10 +2143,11 @@ async function loadDailyReport() {
   const date = document.getElementById('rpt-daily-date').value || selectedDate;
   const snap = await db.collection('attendance').doc(date).collection('records').get();
   const rec = {}; snap.docs.forEach(d => rec[d.id] = d.data());
-  const { rows, totals } = buildReportRows({ [date]: rec }, [date]);
+  const { rows, intensiveRows, totals, intensiveTotals } = buildReportRows({ [date]: rec }, [date]);
   lastReportRows = rows; lastReportType = 'daily';
   renderStatCards('daily-stats', totals, 1);
   renderReportTable('daily-report-body', rows, false);
+  renderIntensiveSection('daily-intensive-section', intensiveRows, intensiveTotals, false);
 }
 
 async function loadWeeklyReport() {
@@ -2147,10 +2157,11 @@ async function loadWeeklyReport() {
   lbl.textContent = `Week: ${formatDate(dates[0])} – ${formatDate(dates[6])}`;
   lbl.style.display = '';
   const recByDate = await fetchDateRange(dates);
-  const { rows, totals } = buildReportRows(recByDate, dates);
+  const { rows, intensiveRows, totals, intensiveTotals } = buildReportRows(recByDate, dates);
   lastReportRows = rows; lastReportType = 'weekly';
   renderStatCards('weekly-stats', totals, dates.length);
   renderReportTable('weekly-report-body', rows, true);
+  renderIntensiveSection('weekly-intensive-section', intensiveRows, intensiveTotals, true);
 }
 
 async function loadMonthlyReport() {
@@ -2161,10 +2172,53 @@ async function loadMonthlyReport() {
   lbl.textContent = `${formatDate(dates[0])} – ${formatDate(dates[dates.length-1])} (${dates.length} days)`;
   lbl.style.display = '';
   const recByDate = await fetchDateRange(dates);
-  const { rows, totals } = buildReportRows(recByDate, dates);
+  const { rows, intensiveRows, totals, intensiveTotals } = buildReportRows(recByDate, dates);
   lastReportRows = rows; lastReportType = 'monthly';
   renderStatCards('monthly-stats', totals, dates.length);
   renderReportTable('monthly-report-body', rows, true);
+  renderIntensiveSection('monthly-intensive-section', intensiveRows, intensiveTotals, true);
+}
+
+function renderIntensiveSection(containerId, rows, totals, isMulti) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  if (!rows.length) { el.style.display = 'none'; return; }
+  const pct = totals.possible ? Math.round(totals.present/totals.possible*100) : 0;
+  el.style.display = '';
+  el.innerHTML = `
+    <div style="margin-top:28px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+        <span style="font-size:13px;font-weight:700;color:#b45309;background:#fef3c7;padding:4px 12px;border-radius:99px;border:1.5px solid #fcd34d;">🎯 Intensive Program</span>
+        <span style="font-size:12px;color:#6b7280;">${totals.total} students &nbsp;·&nbsp; ${pct}% attendance rate</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>Site</th><th>Group</th><th>Total Students</th>
+            ${isMulti ? '<th>Days Logged</th><th>Total Present</th><th>Avg/Day</th>' : '<th>Present</th>'}
+            <th>Absent</th><th>Attendance %</th><th>Paid</th>
+          </tr></thead>
+          <tbody>
+            ${rows.map(r => {
+              const p = r.possible ? Math.round(r.present/r.possible*100) : 0;
+              const avg = r.daysWithData ? (r.present/r.daysWithData).toFixed(1) : '0';
+              const rowCls = r.isSub ? 'class="subtotal-row"' : '';
+              const siteLbl = r.isSub ? `<strong style="color:${siteColor(r.site)}">${esc(r.site)}</strong>` : `<span style="color:${siteColor(r.site)};font-weight:600;">${esc(r.site)}</span>`;
+              const groupLbl = r.isSub ? `<em style="color:#6b7280;">${esc(r.group)}</em>` : esc(r.group);
+              const absent = isMulti ? r.possible - r.present : r.total - r.present;
+              return `<tr ${rowCls}>
+                <td>${siteLbl}</td><td>${groupLbl}</td>
+                <td style="text-align:right;">${r.total}</td>
+                ${isMulti ? `<td style="text-align:right;">${r.daysWithData}</td><td style="text-align:right;">${r.present}</td><td style="text-align:right;">${avg}</td>` : `<td style="text-align:right;">${r.present}</td>`}
+                <td style="text-align:right;color:#dc2626;">${absent}</td>
+                <td style="text-align:right;">${p}%</td>
+                <td style="text-align:right;">${r.paid}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
 }
 
 function getWeekDates(dateStr) {
@@ -2196,12 +2250,16 @@ async function fetchDateRange(dates) {
 }
 
 function buildReportRows(recByDate, dates) {
-  const rows = [];
+  const rows = [];           // regular camper sites
+  const intensiveRows = [];  // intensive program (separate)
   const isMulti = dates.length > 1;
   const daysWithData = dates.filter(d => Object.keys(recByDate[d]||{}).length > 0).length || 1;
   let gTotal=0, gPresent=0, gPaid=0, gPossible=0;
+  let iTotal=0, iPresent=0, iPaid=0, iPossible=0;
 
   for (const [site, groups] of Object.entries(SITES)) {
+    const isIntensive = INTENSIVE_SITES.has(site);
+    const targetRows = isIntensive ? intensiveRows : rows;
     let sTotal=0, sPresent=0, sPaid=0, sPossible=0;
     for (const group of groups) {
       const campers = allCampers.filter(c => c.site === site && c.group === group);
@@ -2210,18 +2268,22 @@ function buildReportRows(recByDate, dates) {
       dates.forEach(d => {
         campers.forEach(c => { if (recByDate[d]?.[c.id]?.present) present++; });
       });
-      // paid: permanent per-camper tuition record, not per-day
       const paid = campers.filter(c => c.tuitionPaid || c.tuition === 'voucher' || c.tuition === 'scholarship').length;
       const possible = isMulti ? campers.length * daysWithData : campers.length;
       sTotal += campers.length; sPresent += present; sPaid += paid; sPossible += possible;
-      rows.push({ site, group, total: campers.length, present, paid, possible, daysWithData, isSub: false });
+      targetRows.push({ site, group, total: campers.length, present, paid, possible, daysWithData, isSub: false });
     }
     if (sTotal > 0) {
-      rows.push({ site, group:'— Site Total', total:sTotal, present:sPresent, paid:sPaid, possible:sPossible, daysWithData, isSub:true });
-      gTotal+=sTotal; gPresent+=sPresent; gPaid+=sPaid; gPossible+=sPossible;
+      targetRows.push({ site, group:'— Site Total', total:sTotal, present:sPresent, paid:sPaid, possible:sPossible, daysWithData, isSub:true });
+      if (isIntensive) { iTotal+=sTotal; iPresent+=sPresent; iPaid+=sPaid; iPossible+=sPossible; }
+      else             { gTotal+=sTotal; gPresent+=sPresent; gPaid+=sPaid; gPossible+=sPossible; }
     }
   }
-  return { rows, totals: { total:gTotal, present:gPresent, paid:gPaid, possible:gPossible, daysWithData } };
+  return {
+    rows, intensiveRows,
+    totals:          { total:gTotal,  present:gPresent,  paid:gPaid,  possible:gPossible,  daysWithData },
+    intensiveTotals: { total:iTotal,  present:iPresent,  paid:iPaid,  possible:iPossible,  daysWithData }
+  };
 }
 
 function renderStatCards(containerId, totals, numDays) {

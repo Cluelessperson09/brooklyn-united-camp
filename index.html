@@ -1388,8 +1388,11 @@ function previewRoster(data, filename) {
   const rows = data.map(normalizeRow).filter(r => r.name);
   if (!rows.length) { toast('No valid "Name" column found. Check your file.'); return; }
   pendingRows = rows;
-  const existingNames = new Set(allCampers.map(c => c.name.trim().toLowerCase()));
-  const newCount = rows.filter(r => !existingNames.has(r.name.trim().toLowerCase())).length;
+  // Duplicate = same name AND same site (so a Bedstuy camper can also be in Intensive)
+  const existingKeys = new Set(allCampers.map(c => c.name.trim().toLowerCase() + '|' + (c.site||'').toLowerCase()));
+  const defaultSiteVal  = document.getElementById('upload-site')?.value || '—';
+  const defaultGroupVal = document.getElementById('upload-group')?.value || '—';
+  const newCount = rows.filter(r => !existingKeys.has(r.name.trim().toLowerCase() + '|' + (r.site||defaultSiteVal).toLowerCase())).length;
   const dupCount = rows.length - newCount;
   let titleSuffix = `${rows.length} campers found`;
   if (dupCount > 0) titleSuffix += ` — <span style="color:#16a34a;font-weight:700;">${newCount} new</span>, <span style="color:#9ca3af;">${dupCount} already exist (will skip)</span>`;
@@ -1397,10 +1400,8 @@ function previewRoster(data, filename) {
   document.getElementById('preview-head').innerHTML =
     '<tr>' + ['','Name','Site','Group','Notes','Tuition','Paid'].map(c => `<th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;">${c}</th>`).join('') + '</tr>';
   const preview = rows.slice(0, 8);
-  const defaultSiteVal  = document.getElementById('upload-site')?.value || '—';
-  const defaultGroupVal = document.getElementById('upload-group')?.value || '—';
   document.getElementById('preview-body').innerHTML = preview.map(r => {
-    const isDup = existingNames.has(r.name.trim().toLowerCase());
+    const isDup = existingKeys.has(r.name.trim().toLowerCase() + '|' + (r.site||defaultSiteVal).toLowerCase());
     const rowStyle = isDup ? 'opacity:0.45;' : '';
     const td = (v,italic) => `<td style="padding:7px 12px;border-top:1px solid #f1f5f9;${italic?'color:#9ca3af;font-style:italic;':''}">${v}</td>`;
     const statusBadge = isDup
@@ -1432,12 +1433,15 @@ async function confirmUpload() {
   const btn = document.getElementById('upload-confirm');
   btn.disabled = true; btn.textContent = 'Uploading…';
   try {
-    // Skip campers whose name already exists (case-insensitive)
-    const existingNames = new Set(allCampers.map(c => c.name.trim().toLowerCase()));
-    const newRows = pendingRows.filter(r => !existingNames.has(r.name.trim().toLowerCase()));
+    // Skip campers whose name+site already exists (same name in a different site is allowed)
+    const existingKeys = new Set(allCampers.map(c => c.name.trim().toLowerCase() + '|' + (c.site||'').toLowerCase()));
+    const newRows = pendingRows.filter(r => {
+      const site = (r.site || defaultSite || '').toLowerCase();
+      return !existingKeys.has(r.name.trim().toLowerCase() + '|' + site);
+    });
     const skipped = pendingRows.length - newRows.length;
     if (newRows.length === 0) {
-      toast(`All ${skipped} campers already exist — nothing to add`);
+      toast(`All ${skipped} campers already exist in this site — nothing to add`);
       cancelUpload();
       return;
     }
@@ -1468,7 +1472,7 @@ async function confirmUpload() {
     renderSitePills(); renderGroupPills(); renderAdminTable(); renderRosterTable();
     cancelUpload();
     const msg = skipped > 0
-      ? `✓ ${newRows.length} new campers added, ${skipped} already existed (skipped)`
+      ? `✓ ${newRows.length} new campers added, ${skipped} already existed in this site (skipped)`
       : `✓ ${newRows.length} campers uploaded!`;
     toast(msg);
   } catch(e) { toast('Upload failed: ' + e.message); }

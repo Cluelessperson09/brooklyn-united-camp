@@ -477,6 +477,7 @@
                   <option value="">— Select default site —</option>
                   <option value="Bedstuy">Bedstuy</option>
                   <option value="Canarsie">Canarsie</option>
+                  <option value="Intensive">Intensive</option>
                 </select>
               </div>
               <div>
@@ -561,10 +562,7 @@
             <div><label class="field-label">Temporary Password</label><input id="l-pass" class="input" placeholder="They can change it later"></div>
             <div style="grid-column:1/-1;">
               <label class="field-label">Sites</label>
-              <div class="site-check-row">
-                <label><input type="checkbox" id="l-site-ps289" value="Bedstuy" onchange="renderLeaderGroupChecks()"> Bedstuy</label>
-                <label><input type="checkbox" id="l-site-canarise" value="Canarsie" onchange="renderLeaderGroupChecks()"> Canarsie</label>
-              </div>
+              <div class="site-check-row" id="l-site-checks"></div>
             </div>
             <div style="grid-column:1/-1;">
               <label class="field-label">Assign to Groups</label>
@@ -937,6 +935,13 @@ function wireEvents() {
     document.getElementById('upload-site').addEventListener('change', e => updateLeaderGroupOpts('upload-group', 'upload-site'));
   }
 
+  // Populate leader site checkboxes dynamically from SITES constant
+  const siteChecksEl = document.getElementById('l-site-checks');
+  if (siteChecksEl) {
+    siteChecksEl.innerHTML = Object.keys(SITES).map(s =>
+      `<label><input type="checkbox" class="l-site-check" value="${s}" onchange="renderLeaderGroupChecks()"> ${s}</label>`
+    ).join('');
+  }
   document.getElementById('add-leader-btn')?.addEventListener('click', addLeader);
   document.getElementById('exp-btn')?.addEventListener('click', exportRange);
 }
@@ -1048,7 +1053,7 @@ function renderSitePills() {
     return;
   }
   document.getElementById('site-pills').innerHTML =
-    ['all', 'Bedstuy', 'Canarsie'].map(s => `
+    ['all', ...Object.keys(SITES)].map(s => `
       <button class="pill ${siteClass(s)} ${s === selectedSite ? 'active' : ''}" onclick="selectSite('${s}')">
         ${s === 'all' ? '🏕 All Sites' : s}
       </button>
@@ -1865,9 +1870,7 @@ async function addLeader() {
   const name  = document.getElementById('l-name').value.trim();
   const email = document.getElementById('l-email').value.trim().toLowerCase();
   const pass  = document.getElementById('l-pass').value;
-  const sites = [];
-  if (document.getElementById('l-site-ps289')?.checked) sites.push('Bedstuy');
-  if (document.getElementById('l-site-canarise')?.checked) sites.push('Canarsie');
+  const sites = [...document.querySelectorAll('#l-site-checks input:checked')].map(el => el.value);
   const groups = [...document.querySelectorAll('.l-group-check:checked')].map(el => el.value);
   hideErr('leader-error');
   if (!name||!email||!pass||!sites.length||!groups.length) { showErr('leader-error','All fields are required'); return; }
@@ -1883,8 +1886,7 @@ async function addLeader() {
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
     ['l-name','l-email','l-pass'].forEach(id => document.getElementById(id).value = '');
-    const sitePS = document.getElementById('l-site-ps289'); if (sitePS) sitePS.checked = false;
-    const siteCan = document.getElementById('l-site-canarise'); if (siteCan) siteCan.checked = false;
+    document.querySelectorAll('#l-site-checks input').forEach(el => el.checked = false);
     document.querySelectorAll('.l-group-check').forEach(el => el.checked = false);
     renderLeaderGroupChecks();
     await fetchUsers(); renderLeadersTab();
@@ -1894,9 +1896,7 @@ async function addLeader() {
 }
 
 function renderLeaderGroupChecks() {
-  const selectedSites = [];
-  if (document.getElementById('l-site-ps289')?.checked) selectedSites.push('Bedstuy');
-  if (document.getElementById('l-site-canarise')?.checked) selectedSites.push('Canarsie');
+  const selectedSites = [...document.querySelectorAll('#l-site-checks input:checked')].map(el => el.value);
   const groups = selectedSites.flatMap(s => SITES[s] || []);
   const el = document.getElementById('l-group-checks');
   if (!el) return;

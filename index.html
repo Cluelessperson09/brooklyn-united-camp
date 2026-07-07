@@ -243,8 +243,6 @@
           <label class="field-label">Site <span style="color:#ef4444;">*</span></label>
           <select id="add-camper-site" class="input" onchange="updateLeaderGroupOpts('add-camper-group','add-camper-site')">
             <option value="">— Select site —</option>
-            <option value="Bedstuy">Bedstuy</option>
-            <option value="Canarsie">Canarsie</option>
           </select>
         </div>
         <div>
@@ -276,8 +274,6 @@
         <label class="field-label">New Site</label>
         <select id="move-site" class="input" onchange="updateLeaderGroupOpts('move-group','move-site')">
           <option value="">Select site…</option>
-          <option value="Bedstuy">Bedstuy</option>
-          <option value="Canarsie">Canarsie</option>
         </select>
       </div>
       <div>
@@ -754,8 +750,6 @@
                 <label class="field-label">Site Filter</label>
                 <select id="exp-site" class="input" style="width:auto;">
                   <option value="all">All Sites</option>
-                  <option value="Bedstuy">Bedstuy</option>
-                  <option value="Canarsie">Canarsie</option>
                 </select>
               </div>
               <div style="align-self:flex-end;"><button id="exp-btn" class="btn btn-primary">⬇ Export CSV</button></div>
@@ -939,6 +933,15 @@ function wireEvents() {
     document.getElementById('upload-confirm').addEventListener('click', confirmUpload);
     document.getElementById('upload-site').addEventListener('change', e => updateLeaderGroupOpts('upload-group', 'upload-site'));
   }
+
+  // Populate all site dropdowns dynamically from SITES constant
+  const siteOpts = Object.keys(SITES).map(s => `<option value="${s}">${s}</option>`).join('');
+  const addCamperSiteEl = document.getElementById('add-camper-site');
+  if (addCamperSiteEl) addCamperSiteEl.insertAdjacentHTML('beforeend', siteOpts);
+  const moveSiteEl = document.getElementById('move-site');
+  if (moveSiteEl) moveSiteEl.insertAdjacentHTML('beforeend', siteOpts);
+  const expSiteEl = document.getElementById('exp-site');
+  if (expSiteEl) expSiteEl.insertAdjacentHTML('beforeend', siteOpts);
 
   // Populate leader site checkboxes dynamically from SITES constant
   const siteChecksEl = document.getElementById('l-site-checks');

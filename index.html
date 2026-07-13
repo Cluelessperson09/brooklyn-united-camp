@@ -1388,24 +1388,25 @@ function previewRoster(data, filename) {
   const rows = data.map(normalizeRow).filter(r => r.name);
   if (!rows.length) { toast('No valid "Name" column found. Check your file.'); return; }
   pendingRows = rows;
-  // Duplicate = same name AND same site (so a Bedstuy camper can also be in Intensive)
-  const existingKeys = new Set(allCampers.map(c => c.name.trim().toLowerCase() + '|' + (c.site||'').toLowerCase()));
+  // Build lookup: name+site → existing camper (for upsert)
+  const existingMap = {};
+  allCampers.forEach(c => { existingMap[c.name.trim().toLowerCase() + '|' + (c.site||'').toLowerCase()] = c; });
   const defaultSiteVal  = document.getElementById('upload-site')?.value || '—';
   const defaultGroupVal = document.getElementById('upload-group')?.value || '—';
-  const newCount = rows.filter(r => !existingKeys.has(r.name.trim().toLowerCase() + '|' + (r.site||defaultSiteVal).toLowerCase())).length;
-  const dupCount = rows.length - newCount;
+  const newCount    = rows.filter(r => !existingMap[r.name.trim().toLowerCase() + '|' + (r.site||defaultSiteVal).toLowerCase()]).length;
+  const updateCount = rows.length - newCount;
   let titleSuffix = `${rows.length} campers found`;
-  if (dupCount > 0) titleSuffix += ` — <span style="color:#16a34a;font-weight:700;">${newCount} new</span>, <span style="color:#9ca3af;">${dupCount} already exist (will skip)</span>`;
+  if (updateCount > 0) titleSuffix += ` — <span style="color:#16a34a;font-weight:700;">${newCount} new</span>, <span style="color:#1d4ed8;font-weight:700;">${updateCount} will update</span>`;
   document.getElementById('preview-title').innerHTML = `${esc(filename)} — ${titleSuffix}`;
   document.getElementById('preview-head').innerHTML =
     '<tr>' + ['','Name','Site','Group','Notes','Tuition','Paid'].map(c => `<th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;">${c}</th>`).join('') + '</tr>';
   const preview = rows.slice(0, 8);
   document.getElementById('preview-body').innerHTML = preview.map(r => {
-    const isDup = existingKeys.has(r.name.trim().toLowerCase() + '|' + (r.site||defaultSiteVal).toLowerCase());
-    const rowStyle = isDup ? 'opacity:0.45;' : '';
+    const isUpdate = !!existingMap[r.name.trim().toLowerCase() + '|' + (r.site||defaultSiteVal).toLowerCase()];
+    const rowStyle = '';
     const td = (v,italic) => `<td style="padding:7px 12px;border-top:1px solid #f1f5f9;${italic?'color:#9ca3af;font-style:italic;':''}">${v}</td>`;
-    const statusBadge = isDup
-      ? `<td style="padding:7px 12px;border-top:1px solid #f1f5f9;"><span style="font-size:10px;background:#f3f4f6;color:#6b7280;padding:2px 6px;border-radius:4px;font-weight:600;">EXISTS</span></td>`
+    const statusBadge = isUpdate
+      ? `<td style="padding:7px 12px;border-top:1px solid #f1f5f9;"><span style="font-size:10px;background:#dbeafe;color:#1d4ed8;padding:2px 6px;border-radius:4px;font-weight:600;">UPDATE</span></td>`
       : `<td style="padding:7px 12px;border-top:1px solid #f1f5f9;"><span style="font-size:10px;background:#dcfce7;color:#16a34a;padding:2px 6px;border-radius:4px;font-weight:600;">NEW</span></td>`;
     const tuitionDisp = r.tuition === 'voucher' ? '<span class="badge-voucher">🎫 Voucher</span>' : r.tuition === 'scholarship' ? '<span class="badge-scholarship">🎓 Scholarship</span>' : (r.tuition != null ? '$'+Number(r.tuition).toFixed(2) : '—');
     const paidDisp = (r.tuition === 'voucher' || r.tuition === 'scholarship' || r.tuitionPaid) ? '<span class="pay-paid">✓ Paid</span>' : '<span style="color:#9ca3af;font-size:12px;">—</span>';
@@ -1433,48 +1434,51 @@ async function confirmUpload() {
   const btn = document.getElementById('upload-confirm');
   btn.disabled = true; btn.textContent = 'Uploading…';
   try {
-    // Skip campers whose name+site already exists (same name in a different site is allowed)
-    const existingKeys = new Set(allCampers.map(c => c.name.trim().toLowerCase() + '|' + (c.site||'').toLowerCase()));
-    const newRows = pendingRows.filter(r => {
-      const site = (r.site || defaultSite || '').toLowerCase();
-      return !existingKeys.has(r.name.trim().toLowerCase() + '|' + site);
+    // Upsert: add new campers, update existing ones (matched by name+site)
+    const existingMap = {};
+    allCampers.forEach(c => { existingMap[c.name.trim().toLowerCase() + '|' + (c.site||'').toLowerCase()] = c.id; });
+    const toAdd = [], toUpdate = [];
+    pendingRows.forEach(r => {
+      const site  = r.site  || defaultSite  || '';
+      const group = r.group || defaultGroup || '';
+      const key   = r.name.trim().toLowerCase() + '|' + site.toLowerCase();
+      if (existingMap[key]) toUpdate.push({ ...r, site, group, _id: existingMap[key] });
+      else                  toAdd.push({ ...r, site, group });
     });
-    const skipped = pendingRows.length - newRows.length;
-    if (newRows.length === 0) {
-      toast(`All ${skipped} campers already exist in this site — nothing to add`);
-      cancelUpload();
-      return;
-    }
-    // Firestore batches max 500 ops; chunk if needed
-    const chunks = [];
-    for (let i = 0; i < newRows.length; i += 499) chunks.push(newRows.slice(i, i+499));
-    for (const chunk of chunks) {
+    // Add new campers
+    const addChunks = [];
+    for (let i = 0; i < toAdd.length; i += 499) addChunks.push(toAdd.slice(i, i+499));
+    for (const chunk of addChunks) {
       const batch = db.batch();
       chunk.forEach(r => {
-        const doc = {
-          name:  r.name,
-          site:  r.site  || defaultSite  || '',   // CSV first, then form default
-          group: r.group || defaultGroup || '',   // CSV first, then form default
-          notes: r.notes || '',
-          addedAt: firebase.firestore.FieldValue.serverTimestamp()
-        };
-        if (r.tuition != null) {
-          doc.tuition = r.tuition;                                                                    // number, 'voucher', or 'scholarship'
-          doc.tuitionPaid = r.tuition === 'voucher' || r.tuition === 'scholarship' || !!r.tuitionPaid; // free-ride types auto-paid
-        } else if (r.tuitionPaid) {
-          doc.tuitionPaid = true;  // paid flag even without a tuition amount
-        }
+        const doc = { name: r.name, site: r.site, group: r.group, notes: r.notes || '',
+                      addedAt: firebase.firestore.FieldValue.serverTimestamp() };
+        if (r.tuition != null) { doc.tuition = r.tuition; doc.tuitionPaid = r.tuition === 'voucher' || r.tuition === 'scholarship' || !!r.tuitionPaid; }
+        else if (r.tuitionPaid) { doc.tuitionPaid = true; }
         batch.set(db.collection('campers').doc(), doc);
+      });
+      await batch.commit();
+    }
+    // Update existing campers (group, notes, tuition — preserves tuitionPaid if not in CSV)
+    const updChunks = [];
+    for (let i = 0; i < toUpdate.length; i += 499) updChunks.push(toUpdate.slice(i, i+499));
+    for (const chunk of updChunks) {
+      const batch = db.batch();
+      chunk.forEach(r => {
+        const doc = { group: r.group, notes: r.notes || '', updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+        if (r.tuition != null) { doc.tuition = r.tuition; doc.tuitionPaid = r.tuition === 'voucher' || r.tuition === 'scholarship' || !!r.tuitionPaid; }
+        else if (r.tuitionPaid) { doc.tuitionPaid = true; }
+        batch.update(db.collection('campers').doc(r._id), doc);
       });
       await batch.commit();
     }
     await fetchCampers();
     renderSitePills(); renderGroupPills(); renderAdminTable(); renderRosterTable();
     cancelUpload();
-    const msg = skipped > 0
-      ? `✓ ${newRows.length} new campers added, ${skipped} already existed in this site (skipped)`
-      : `✓ ${newRows.length} campers uploaded!`;
-    toast(msg);
+    const parts = [];
+    if (toAdd.length)    parts.push(`${toAdd.length} new added`);
+    if (toUpdate.length) parts.push(`${toUpdate.length} updated`);
+    toast(`✓ ${parts.join(', ') || 'Nothing to change'}`);
   } catch(e) { toast('Upload failed: ' + e.message); }
   finally { btn.disabled = false; btn.textContent = 'Upload Roster'; }
 }

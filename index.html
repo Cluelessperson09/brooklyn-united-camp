@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Brooklyn United Camp — Attendance</title>
+  <title>Brooklyn United — Afterschool & Saturday</title>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
@@ -217,13 +217,13 @@
 <!-- ════════ REMOVE CAMPER MODAL ════════ -->
 <div id="remove-modal" class="modal-overlay" onclick="if(event.target===this)closeRemoveModal()">
   <div class="modal-box">
-    <div class="modal-title">Remove Camper</div>
+    <div class="modal-title">Remove Student</div>
     <p class="modal-sub" id="remove-modal-name"></p>
     <label class="field-label">Reason for removal</label>
     <textarea id="remove-reason" class="input" rows="3" placeholder="e.g. Moved away, withdrawn, health reasons…" style="resize:vertical;margin-bottom:16px;"></textarea>
     <div style="display:flex;gap:8px;justify-content:flex-end;">
       <button class="btn btn-secondary btn-sm" onclick="closeRemoveModal()">Cancel</button>
-      <button class="btn btn-red btn-sm" onclick="confirmRemove()">Remove Camper</button>
+      <button class="btn btn-red btn-sm" onclick="confirmRemove()">Remove Student</button>
     </div>
   </div>
 </div>
@@ -231,8 +231,8 @@
 <!-- ════════ ADD SINGLE CAMPER MODAL ════════ -->
 <div id="add-camper-modal" class="modal-overlay" onclick="if(event.target===this)closeAddCamperModal()">
   <div class="modal-box">
-    <div class="modal-title">➕ Add Individual Camper</div>
-    <p class="modal-sub">Camper will be added to the live roster immediately.</p>
+    <div class="modal-title">➕ Add Individual Student</div>
+    <p class="modal-sub">Student will be added to the live roster immediately.</p>
     <div style="display:grid;gap:12px;margin-bottom:16px;">
       <div>
         <label class="field-label">Full Name <span style="color:#ef4444;">*</span></label>
@@ -240,13 +240,13 @@
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
         <div>
-          <label class="field-label">Site <span style="color:#ef4444;">*</span></label>
+          <label class="field-label">Activity <span style="color:#ef4444;">*</span></label>
           <select id="add-camper-site" class="input" onchange="updateLeaderGroupOpts('add-camper-group','add-camper-site')">
-            <option value="">— Select site —</option>
+            <option value="">— Select activity —</option>
           </select>
         </div>
         <div>
-          <label class="field-label">Group <span style="color:#ef4444;">*</span></label>
+          <label class="field-label">Section <span style="color:#ef4444;">*</span></label>
           <select id="add-camper-group" class="input">
             <option value="">— Select group —</option>
           </select>
@@ -259,7 +259,7 @@
     </div>
     <div style="display:flex;gap:8px;justify-content:flex-end;">
       <button class="btn btn-secondary btn-sm" onclick="closeAddCamperModal()">Cancel</button>
-      <button class="btn btn-primary btn-sm" id="add-camper-confirm-btn" onclick="submitAddCamper()">Add Camper</button>
+      <button class="btn btn-primary btn-sm" id="add-camper-confirm-btn" onclick="submitAddCamper()">Add Student</button>
     </div>
   </div>
 </div>
@@ -271,19 +271,19 @@
     <p id="move-modal-sub" class="modal-sub"></p>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
       <div>
-        <label class="field-label">New Site</label>
+        <label class="field-label">New Activity</label>
         <select id="move-site" class="input" onchange="updateLeaderGroupOpts('move-group','move-site')">
-          <option value="">Select site…</option>
+          <option value="">Select activity…</option>
         </select>
       </div>
       <div>
-        <label class="field-label">New Group</label>
-        <select id="move-group" class="input"><option value="">Select site first…</option></select>
+        <label class="field-label">New Section</label>
+        <select id="move-group" class="input"><option value="">Select activity first…</option></select>
       </div>
     </div>
     <div style="display:flex;gap:8px;justify-content:flex-end;">
       <button class="btn btn-secondary btn-sm" onclick="closeMoveModal()">Cancel</button>
-      <button class="btn btn-primary btn-sm" onclick="confirmMove()">Move Campers</button>
+      <button class="btn btn-primary btn-sm" onclick="confirmMove()">Move Students</button>
     </div>
   </div>
 </div>
@@ -296,7 +296,7 @@
   <div class="card" style="max-width:420px;width:100%;">
     <div class="text-center mb-16" style="margin-bottom:28px;">
       <div style="font-size:44px;margin-bottom:10px;">🏕️</div>
-      <h1 style="font-size:22px;font-weight:800;">Brooklyn United Camp</h1>
+      <h1 style="font-size:22px;font-weight:800;">Brooklyn United</h1>
       <p class="text-gray" style="margin-top:6px;">Sign in to continue</p>
     </div>
     <div id="signin-form">
@@ -360,7 +360,7 @@
       </div>
 
       <div class="stats stats-3" style="margin-bottom:20px;">
-        <div class="stat-card"><div class="stat-num" id="l-total">0</div><div class="stat-label">Campers</div></div>
+        <div class="stat-card"><div class="stat-num" id="l-total">0</div><div class="stat-label">Students</div></div>
         <div class="stat-card"><div class="stat-num" id="l-present" style="color:#059669;">0</div><div class="stat-label">Present</div></div>
         <div class="stat-card"><div class="stat-num" id="l-paid" style="color:#3b5bf5;">0</div><div class="stat-label">Paid</div></div>
       </div>
@@ -377,7 +377,7 @@
         <table>
           <thead>
             <tr>
-              <th>Camper</th>
+              <th>Student</th>
               <th class="center" style="width:100px;">Present</th>
               <th class="center" style="width:100px;">Paid</th>
               <th>Notes</th>
@@ -419,7 +419,7 @@
         </div>
 
         <div class="stats stats-4" id="admin-stats" style="margin-bottom:20px;">
-          <div class="stat-card"><div class="stat-num" id="a-total">0</div><div class="stat-label">Total Campers</div></div>
+          <div class="stat-card"><div class="stat-num" id="a-total">0</div><div class="stat-label">Total Students</div></div>
           <div class="stat-card"><div class="stat-num" id="a-present" style="color:#059669;">0</div><div class="stat-label">Present</div></div>
           <div class="stat-card"><div class="stat-num" id="a-absent" style="color:#dc2626;">0</div><div class="stat-label">Absent</div></div>
           <div class="stat-card"><div class="stat-num" id="a-paid" style="color:#3b5bf5;">0</div><div class="stat-label">Paid</div></div>
@@ -429,9 +429,9 @@
           <table>
             <thead>
               <tr>
-                <th>Camper</th>
-                <th class="hide-mobile">Site</th>
-                <th class="hide-mobile">Group</th>
+                <th>Student</th>
+                <th class="hide-mobile">Activity</th>
+                <th class="hide-mobile">Section</th>
                 <th class="center" style="width:90px;">Present</th>
                 <th class="center" style="width:90px;">Paid</th>
                 <th>Notes</th>
@@ -445,7 +445,7 @@
       <!-- ── ROSTER TAB ── -->
       <div id="tab-roster" style="display:none;">
         <div class="roster-subtabs">
-          <button class="roster-subtab active" id="rsub-active" onclick="switchRosterSub('active')">👥 Active Campers</button>
+          <button class="roster-subtab active" id="rsub-active" onclick="switchRosterSub('active')">👥 Active Students</button>
           <button class="roster-subtab" id="rsub-dropped" onclick="switchRosterSub('dropped')">🚫 Dropped / Removed</button>
         </div>
 
@@ -455,8 +455,8 @@
           <div class="section-title">Upload Roster</div>
           <p class="text-gray text-sm" style="margin-bottom:16px;">
             Upload a <strong>.csv</strong> or <strong>.xlsx</strong> file. Required column: <code>Name</code>.
-            Optional: <code>Site</code>, <code>Group</code>, <code>Notes</code>.<br>
-            If your file has a <code>Group</code> column matching one of the predefined groups, the site will be auto-detected.
+            Optional: <code>Activity</code>, <code>Section</code>, <code>Notes</code>.<br>
+            If your file has a <code>Section</code> column matching one of the predefined sections, the activity will be auto-detected.
           </p>
           <div class="upload-zone" id="upload-zone">
             <div class="upload-icon">📂</div>
@@ -468,7 +468,7 @@
           <div id="upload-preview" style="display:none;margin-top:20px;">
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
               <div>
-                <label class="field-label">Default Site (for rows without auto-detected site)</label>
+                <label class="field-label">Default Activity (for rows without auto-detected activity)</label>
                 <select id="upload-site" class="input">
                   <option value="">— Select default site —</option>
                   <option value="Bedstuy">Bedstuy</option>
@@ -477,7 +477,7 @@
                 </select>
               </div>
               <div>
-                <label class="field-label">Default Group (for rows without a group column)</label>
+                <label class="field-label">Default Section (for rows without a section column)</label>
                 <select id="upload-group" class="input">
                   <option value="">— Select default group —</option>
                 </select>
@@ -516,12 +516,12 @@
           <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;background:#fff;border-bottom:1px solid #e5e7eb;flex-wrap:wrap;gap:8px;">
             <span style="font-weight:700;">Roster (<span id="roster-count">0</span> campers)</span>
             <div style="display:flex;gap:8px;">
-              <button class="btn btn-primary btn-sm" id="add-camper-btn" onclick="openAddCamperModal()" style="display:none;">➕ Add Camper</button>
+              <button class="btn btn-primary btn-sm" id="add-camper-btn" onclick="openAddCamperModal()" style="display:none;">➕ Add Student</button>
               <button class="btn btn-red btn-sm" onclick="clearRoster()">Clear All</button>
             </div>
           </div>
           <table>
-            <thead><tr><th class="check-col"><input type="checkbox" id="select-all-roster" onclick="toggleSelectAll(this.checked)" title="Select all"></th><th>Name</th><th>Site</th><th>Group</th><th class="hide-mobile">Notes</th><th style="text-align:right;">Tuition</th><th style="width:90px;"></th></tr></thead>
+            <thead><tr><th class="check-col"><input type="checkbox" id="select-all-roster" onclick="toggleSelectAll(this.checked)" title="Select all"></th><th>Name</th><th>Activity</th><th>Section</th><th class="hide-mobile">Notes</th><th style="text-align:right;">Tuition</th><th style="width:90px;"></th></tr></thead>
             <tbody id="roster-tbody"></tbody>
           </table>
         </div>
@@ -540,7 +540,7 @@
               <p class="text-gray text-sm">Restore campers or permanently delete them.</p>
             </div>
             <table>
-              <thead><tr><th class="check-col"><input type="checkbox" id="select-all-dropped" onclick="toggleSelectAllDropped(this.checked)" title="Select all"></th><th>Name</th><th>Site</th><th>Group</th><th>Removed On</th><th>Reason</th><th style="width:100px;"></th></tr></thead>
+              <thead><tr><th class="check-col"><input type="checkbox" id="select-all-dropped" onclick="toggleSelectAllDropped(this.checked)" title="Select all"></th><th>Name</th><th>Activity</th><th>Section</th><th>Removed On</th><th>Reason</th><th style="width:100px;"></th></tr></thead>
               <tbody id="dropped-tbody"></tbody>
             </table>
           </div>
@@ -557,12 +557,12 @@
             <div><label class="field-label">Email</label><input id="l-email" class="input" type="email" placeholder="leader@example.com"></div>
             <div><label class="field-label">Temporary Password</label><input id="l-pass" class="input" placeholder="They can change it later"></div>
             <div style="grid-column:1/-1;">
-              <label class="field-label">Sites</label>
+              <label class="field-label">Activities</label>
               <div class="site-check-row" id="l-site-checks"></div>
             </div>
             <div style="grid-column:1/-1;">
-              <label class="field-label">Assign to Groups</label>
-              <div class="group-checklist" id="l-group-checks"><span class="text-gray text-sm">Select a site above to see groups</span></div>
+              <label class="field-label">Assign to Sections</label>
+              <div class="group-checklist" id="l-group-checks"><span class="text-gray text-sm">Select an activity above to see groups</span></div>
             </div>
           </div>
           <button id="add-leader-btn" class="btn btn-primary mt-12">Add Leader</button>
@@ -585,7 +585,7 @@
             <p style="font-weight:700;">Active Leaders</p>
           </div>
           <table>
-            <thead><tr><th>Name</th><th>Email</th><th>Sites</th><th>Groups</th><th style="width:80px;"></th></tr></thead>
+            <thead><tr><th>Name</th><th>Email</th><th>Activities</th><th>Sections</th><th style="width:80px;"></th></tr></thead>
             <tbody id="leaders-tbody"></tbody>
           </table>
         </div>
@@ -651,7 +651,7 @@
           <div class="stats stats-4" id="daily-stats" style="margin-bottom:16px;display:none;"></div>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Site</th><th>Group</th><th>Total</th><th style="color:#059669;">Present</th><th style="color:#dc2626;">Absent</th><th>Attendance %</th><th style="color:#3b5bf5;">Paid</th></tr></thead>
+              <thead><tr><th>Activity</th><th>Section</th><th>Total</th><th style="color:#059669;">Present</th><th style="color:#dc2626;">Absent</th><th>Attendance %</th><th style="color:#3b5bf5;">Paid</th></tr></thead>
               <tbody id="daily-report-body"><tr class="empty-row"><td colspan="7">Select a date and click Load Report</td></tr></tbody>
             </table>
           </div>
@@ -671,7 +671,7 @@
           <div class="stats stats-4" id="weekly-stats" style="margin-bottom:16px;display:none;"></div>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Site</th><th>Group</th><th>Total</th><th>Days Logged</th><th style="color:#059669;">Total Present</th><th>Avg/Day</th><th>Attendance %</th><th style="color:#3b5bf5;">Paid</th></tr></thead>
+              <thead><tr><th>Activity</th><th>Section</th><th>Total</th><th>Days Logged</th><th style="color:#059669;">Total Present</th><th>Avg/Day</th><th>Attendance %</th><th style="color:#3b5bf5;">Paid</th></tr></thead>
               <tbody id="weekly-report-body"><tr class="empty-row"><td colspan="8">Select a date and click Load Report</td></tr></tbody>
             </table>
           </div>
@@ -691,7 +691,7 @@
           <div class="stats stats-4" id="monthly-stats" style="margin-bottom:16px;display:none;"></div>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Site</th><th>Group</th><th>Total</th><th>Days Logged</th><th style="color:#059669;">Total Present</th><th>Avg/Day</th><th>Attendance %</th><th style="color:#3b5bf5;">Paid</th></tr></thead>
+              <thead><tr><th>Activity</th><th>Section</th><th>Total</th><th>Days Logged</th><th style="color:#059669;">Total Present</th><th>Avg/Day</th><th>Attendance %</th><th style="color:#3b5bf5;">Paid</th></tr></thead>
               <tbody id="monthly-report-body"><tr class="empty-row"><td colspan="8">Select a month and click Load Report</td></tr></tbody>
             </table>
           </div>
@@ -701,13 +701,13 @@
         <!-- Activity Log -->
         <div id="report-activity" style="display:none;">
           <div class="stats stats-4" style="margin-bottom:20px;">
-            <div class="stat-card"><div class="stat-num" id="act-total">0</div><div class="stat-label">Total Campers</div></div>
+            <div class="stat-card"><div class="stat-num" id="act-total">0</div><div class="stat-label">Total Students</div></div>
             <div class="stat-card"><div class="stat-num" id="act-active" style="color:#059669;">0</div><div class="stat-label">Active</div></div>
             <div class="stat-card"><div class="stat-num" id="act-dropped" style="color:#dc2626;">0</div><div class="stat-label">Dropped</div></div>
             <div class="stat-card"><div class="stat-num" id="act-transferred" style="color:#7c3aed;">0</div><div class="stat-label">Transferred</div></div>
           </div>
           <div class="card" style="margin-bottom:16px;padding:0;">
-            <div style="padding:14px 18px;border-bottom:1px solid #e5e7eb;font-weight:700;font-size:14px;">🚫 Dropped Campers</div>
+            <div style="padding:14px 18px;border-bottom:1px solid #e5e7eb;font-weight:700;font-size:14px;">🚫 Dropped Students</div>
             <div id="act-drops-list"><div class="activity-item"><span class="activity-icon">ℹ️</span><span class="activity-text text-gray">No dropped campers.</span></div></div>
           </div>
           <div class="card" style="padding:0;">
@@ -733,7 +733,7 @@
           <div class="table-wrap">
             <div style="padding:14px 18px;background:#fff;border-bottom:1px solid #e5e7eb;font-weight:700;font-size:14px;">Breakdown by Site / Group</div>
             <table>
-              <thead><tr><th>Site</th><th>Group</th><th style="text-align:right;">Campers</th><th style="text-align:right;">Expected</th><th style="text-align:right;">Paid</th><th style="text-align:right;">🎫 Voucher</th><th style="text-align:right;">🎓 Scholar</th><th style="text-align:right;">Collected</th><th style="text-align:right;">Outstanding</th></tr></thead>
+              <thead><tr><th>Activity</th><th>Section</th><th style="text-align:right;">Students</th><th style="text-align:right;">Expected</th><th style="text-align:right;">Paid</th><th style="text-align:right;">🎫 Voucher</th><th style="text-align:right;">🎓 Scholar</th><th style="text-align:right;">Collected</th><th style="text-align:right;">Outstanding</th></tr></thead>
               <tbody id="rev-tbody"></tbody>
             </table>
           </div>
@@ -747,9 +747,9 @@
               <div><label class="field-label">From</label><input type="date" id="exp-from" class="input" style="width:auto;"></div>
               <div><label class="field-label">To</label><input type="date" id="exp-to" class="input" style="width:auto;"></div>
               <div>
-                <label class="field-label">Site Filter</label>
+                <label class="field-label">Activity Filter</label>
                 <select id="exp-site" class="input" style="width:auto;">
-                  <option value="all">All Sites</option>
+                  <option value="all">All Activities</option>
                 </select>
               </div>
               <div style="align-self:flex-end;"><button id="exp-btn" class="btn btn-primary">⬇ Export CSV</button></div>
@@ -766,14 +766,13 @@
 <script>
 // ─── CONSTANTS ───────────────────────────────
 const SITES = {
-  'Bedstuy':   ['4/5', 'Younger Girls', 'Older Girls', 'Younger Boys', 'Older Boys', 'Drum Camp', 'Dance Camp', 'Sports Camp'],
-  'Canarsie':  ['Canarsie Girls', 'Canarsie Boys'],
-  'Intensive': ['Dance Intensive', 'Drum Intensive']
+  'Afterschool': ['Homework Help Only', 'Level 1 Dance', 'Shimmer', 'Sparkle', 'Silver', 'Level 1 Drum', 'Jr. Drums', 'NBU', 'EVO', 'EVE'],
+  'Saturday':    ['Dance', 'Drums', 'Toddler Dance', 'Toddler Drum']
 };
-// Sites whose members are NOT counted as regular campers
-const INTENSIVE_SITES = new Set(['Intensive']);
+// No intensive-style separation for this program
+const INTENSIVE_SITES = new Set([]);
 
-const SITE_COLORS = { 'Bedstuy': '#7c3aed', 'Canarsie': '#0891b2', 'Intensive': '#b45309' };
+const SITE_COLORS = { 'Afterschool': '#7c3aed', 'Saturday': '#0891b2' };
 
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyBzX0e-s10LsnbMbM6r3fXbegxSYC0tEFk",
@@ -1040,7 +1039,7 @@ function updateLeaderGroupOpts(groupSelectId, siteSelectId) {
   if (!el) return;
   el.innerHTML = site
     ? '<option value="">Select group...</option>' + groups.map(g => `<option value="${g}">${g}</option>`).join('')
-    : '<option value="">Select site first...</option>';
+    : '<option value="">Select activity first...</option>';
 }
 
 function siteColor(site) { return SITE_COLORS[site] || '#6b7280'; }
@@ -1055,7 +1054,7 @@ function renderSitePills() {
     document.getElementById('site-pills').innerHTML =
       ['all', ...leaderSites].map(s => `
         <button class="pill ${siteClass(s)} ${s === selectedSite ? 'active' : ''}" onclick="selectSite('${s}')">
-          ${s === 'all' ? '🏕 All Sites' : s}
+          ${s === 'all' ? '🏫 All' : s}
         </button>
       `).join('');
     return;
@@ -1063,7 +1062,7 @@ function renderSitePills() {
   document.getElementById('site-pills').innerHTML =
     ['all', ...Object.keys(SITES)].map(s => `
       <button class="pill ${siteClass(s)} ${s === selectedSite ? 'active' : ''}" onclick="selectSite('${s}')">
-        ${s === 'all' ? '🏕 All Sites' : s}
+        ${s === 'all' ? '🏫 All' : s}
       </button>
     `).join('');
 }
@@ -1075,7 +1074,7 @@ function renderGroupPills() {
     document.getElementById('group-pills').innerHTML =
       (leaderGroups.length > 1 ? ['all', ...leaderGroups] : leaderGroups).map(g => `
         <button class="pill ${g === selectedGroup ? 'active' : ''}" onclick="selectGroup('${g}')">
-          ${g === 'all' ? 'All Groups' : g}
+          ${g === 'all' ? 'All Sections' : g}
         </button>
       `).join('');
     return;
@@ -1086,7 +1085,7 @@ function renderGroupPills() {
   document.getElementById('group-pills').innerHTML =
     ['all', ...groups].map(g => `
       <button class="pill ${g === selectedGroup ? 'active' : ''}" onclick="selectGroup('${g}')">
-        ${g === 'all' ? 'All Groups' : g}
+        ${g === 'all' ? 'All Sections' : g}
       </button>
     `).join('');
 }
@@ -1137,7 +1136,7 @@ function renderAdminTable() {
   if (!campers.length) {
     const msg = searchQuery
       ? `No camper found by the name "<strong>${esc(searchQuery)}</strong>". Please check the spelling.`
-      : 'No campers found. Upload a roster first.';
+      : 'No students found. Upload a roster first.';
     tbody.innerHTML = `<tr class="empty-row"><td colspan="7">${msg}</td></tr>`; updateAdminStats(); return;
   }
   tbody.innerHTML = campers.map(c => {
@@ -1183,13 +1182,11 @@ function updateAdminStats() {
   const campers = visibleCampers();
   const present = campers.filter(c => attendanceData[c.id]?.present).length;
   const paid    = campers.filter(c => c.tuitionPaid || c.tuition === 'voucher' || c.tuition === 'scholarship').length;
-  const isIntensiveView = selectedSite !== 'all' && INTENSIVE_SITES.has(selectedSite);
   document.getElementById('a-total').textContent   = campers.length;
   document.getElementById('a-present').textContent = present;
   document.getElementById('a-absent').textContent  = campers.length - present;
   document.getElementById('a-paid').textContent    = paid;
-  document.querySelector('#admin-stats .stat-card:first-child .stat-label').textContent =
-    isIntensiveView ? 'Total Students' : 'Total Campers';
+  document.querySelector('#admin-stats .stat-card:first-child .stat-label').textContent = 'Total Students';
 }
 
 async function markAll(present) {
@@ -1201,7 +1198,7 @@ async function markAll(present) {
     // Only mark campers in leader's own groups, skip already-present ones
     campers = campers.filter(c => isLeaderCamper(c) && !attendanceData[c.id]?.present);
   }
-  if (!campers.length) { toast('No campers to update'); return; }
+  if (!campers.length) { toast('No students to update'); return; }
   const batch = db.batch();
   campers.forEach(c => {
     const ref = db.collection('attendance').doc(selectedDate).collection('records').doc(c.id);
@@ -1239,7 +1236,7 @@ async function saveNotes(camperId, value, btn) {
     const by = userProfile?.name || currentUser?.email || 'Someone';
     sendNotificationEmail(
       `📝 Note Added — ${camper?.name || 'Camper'}`,
-      `A note was added on ${formatDate(selectedDate)}.\n\nCamper: ${camper?.name || camperId}\nSite: ${camper?.site || '—'}  |  Group: ${camper?.group || '—'}\nAdded by: ${by}\n\nNote:\n${value.trim()}`
+      `A note was added on ${formatDate(selectedDate)}.\n\nStudent: ${camper?.name || camperId}\nActivity: ${camper?.site || '—'}  |  Section: ${camper?.group || '—'}\nAdded by: ${by}\n\nNote:\n${value.trim()}`
     );
   }
 }
@@ -1267,7 +1264,7 @@ function renderLeaderTable() {
   if (!campers.length) {
     const msg = leaderSearchQuery
       ? `No camper found by the name "<strong>${esc(leaderSearchQuery)}</strong>". Please check the spelling.`
-      : 'No campers in your group yet.';
+      : 'No students in your group yet.';
     tbody.innerHTML = `<tr class="empty-row"><td colspan="4">${msg}</td></tr>`; return;
   }
   tbody.innerHTML = campers.map(c => {
@@ -1502,7 +1499,7 @@ function renderRosterTable() {
   if (!campers.length) {
     const msg = rosterSearchQuery
       ? `No camper found by the name "<strong>${esc(rosterSearchQuery)}</strong>". Please check the spelling.`
-      : 'No campers yet. Upload a roster above.';
+      : 'No students yet. Upload a roster above.';
     tbody.innerHTML = `<tr class="empty-row"><td colspan="7">${msg}</td></tr>`; return;
   }
   tbody.innerHTML = campers.map(c => {
@@ -1670,7 +1667,7 @@ function openMoveModal() {
   const n = selectedRosterIds.size;
   document.getElementById('move-modal-sub').textContent = `Moving ${n} camper${n > 1 ? 's' : ''} to a new group`;
   document.getElementById('move-site').value = '';
-  document.getElementById('move-group').innerHTML = '<option value="">Select site first…</option>';
+  document.getElementById('move-group').innerHTML = '<option value="">Select activity first…</option>';
   document.getElementById('move-modal').classList.add('show');
 }
 
@@ -1716,7 +1713,7 @@ async function submitAddCamper() {
   } catch(e) {
     toast('Failed to add camper: ' + e.message);
   } finally {
-    btn.disabled = false; btn.textContent = 'Add Camper';
+    btn.disabled = false; btn.textContent = 'Add Student';
   }
 }
 
@@ -1768,7 +1765,7 @@ async function confirmMove() {
   const byLabel = byName ? `${byName} (${byEmail})` : byEmail;
   const camperLines = transferSnapshot.map(s => `  • ${s.name}: ${s.fromSite} / ${s.fromGroup} → ${newSite} / ${newGroup}`).join('\n');
   sendNotificationEmail(
-    `🔄 Camper${ids.length > 1 ? 's' : ''} Transferred — ${transferSnapshot.map(s=>s.name).join(', ')}`,
+    `🔄 Student${ids.length > 1 ? 's' : ''} Transferred — ${transferSnapshot.map(s=>s.name).join(', ')}`,
     `${ids.length} camper${ids.length > 1 ? 's were' : ' was'} transferred.\n\n${camperLines}\n\nTransferred by: ${byLabel}\nDate: ${new Date().toLocaleDateString('en-US', {month:'short',day:'numeric',year:'numeric'})}`
   );
 }
@@ -1840,12 +1837,12 @@ async function confirmRemove() {
   updateBulkBar();
   renderRosterTable(); renderDroppedTable();
   renderSitePills(); renderGroupPills(); renderAdminTable();
-  toast(`🚫 ${ids.length === 1 ? (removedCampers.find(c=>c.id===ids[0])?.name || 'Camper') : ids.length + ' campers'} dropped from roster`);
+  toast(`🚫 ${ids.length === 1 ? (removedCampers.find(c=>c.id===ids[0])?.name || 'Student') : ids.length + ' students'} dropped from roster`);
   // Email notification for drop
   const by = userProfile?.name || currentUser?.email || 'Someone';
   sendNotificationEmail(
-    `🚫 Camper${ids.length > 1 ? 's' : ''} Dropped — ${droppedNames.join(', ')}`,
-    `${ids.length} camper${ids.length > 1 ? 's were' : ' was'} dropped from the roster.\n\nCamper${ids.length > 1 ? 's' : ''}:\n${droppedDetails.join('\n')}\n\nDropped by: ${by}\nReason: ${reason || 'No reason given'}\nDate: ${new Date().toLocaleDateString()}`
+    `🚫 Student${ids.length > 1 ? 's' : ''} Dropped — ${droppedNames.join(', ')}`,
+    `${ids.length} student${ids.length > 1 ? 's were' : ' was'} dropped from the roster.\n\nStudent${ids.length > 1 ? 's' : ''}:\n${droppedDetails.join('\n')}\n\nDropped by: ${by}\nReason: ${reason || 'No reason given'}\nDate: ${new Date().toLocaleDateString()}`
   );
 }
 
@@ -1865,7 +1862,7 @@ async function restoreCamper(id) {
   }
   renderRosterTable(); renderDroppedTable();
   renderSitePills(); renderGroupPills(); renderAdminTable();
-  toast(`✓ ${camper?.name || 'Camper'} restored to active roster`);
+  toast(`✓ ${camper?.name || 'Student'} restored to active roster`);
 }
 
 async function clearRoster() {
@@ -1920,7 +1917,7 @@ function renderLeaderGroupChecks() {
   const groups = selectedSites.flatMap(s => SITES[s] || []);
   const el = document.getElementById('l-group-checks');
   if (!el) return;
-  if (!groups.length) { el.innerHTML = '<span class="text-gray text-sm">Select a site above to see groups</span>'; return; }
+  if (!groups.length) { el.innerHTML = '<span class="text-gray text-sm">Select an activity above to see groups</span>'; return; }
   el.innerHTML = groups.map(g => `<label><input type="checkbox" class="l-group-check" value="${g}"> ${g}</label>`).join('');
 }
 
@@ -1943,14 +1940,14 @@ function renderLeadersTab() {
               </div>
             </div>
             <div>
-              <div style="font-size:10px;font-weight:700;color:#6b7280;letter-spacing:.05em;margin-bottom:3px;">SITES</div>
+              <div style="font-size:10px;font-weight:700;color:#6b7280;letter-spacing:.05em;margin-bottom:3px;">ACTIVITIES</div>
               <div style="display:flex;gap:12px;flex-wrap:wrap;">
                 ${Object.keys(SITES).map(s => `<label style="font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="checkbox" class="pa-site-${u.uid}" value="${esc(s)}" onchange="updatePendingGroups('${u.uid}')"> ${esc(s)}</label>`).join('')}
               </div>
             </div>
             <div>
-              <div style="font-size:10px;font-weight:700;color:#6b7280;letter-spacing:.05em;margin-bottom:3px;">GROUPS</div>
-              <div id="pa-groups-${u.uid}" style="display:flex;gap:8px;flex-wrap:wrap;"><span style="font-size:12px;color:#9ca3af;">Select a site first</span></div>
+              <div style="font-size:10px;font-weight:700;color:#6b7280;letter-spacing:.05em;margin-bottom:3px;">SECTIONS</div>
+              <div id="pa-groups-${u.uid}" style="display:flex;gap:8px;flex-wrap:wrap;"><span style="font-size:12px;color:#9ca3af;">Select an activity first</span></div>
             </div>
             <div style="display:flex;gap:6px;">
               <button class="btn btn-primary btn-sm" onclick="approveUser('${u.uid}')">Approve</button>
@@ -1982,7 +1979,7 @@ function renderLeadersTab() {
         <td colspan="5" style="padding:14px 18px;">
           <div style="display:flex;flex-direction:column;gap:10px;">
             <div>
-              <div style="font-size:10px;font-weight:700;color:#6b7280;letter-spacing:.05em;margin-bottom:4px;">SITES</div>
+              <div style="font-size:10px;font-weight:700;color:#6b7280;letter-spacing:.05em;margin-bottom:4px;">ACTIVITIES</div>
               <div style="display:flex;gap:16px;flex-wrap:wrap;">
                 ${Object.keys(SITES).map(s => `<label style="font-size:13px;cursor:pointer;display:flex;align-items:center;gap:5px;">
                   <input type="checkbox" class="le-site-${u.uid}" value="${esc(s)}" ${sites.includes(s)?'checked':''} onchange="updateLeaderEditGroups('${u.uid}')"> ${esc(s)}
@@ -1990,7 +1987,7 @@ function renderLeadersTab() {
               </div>
             </div>
             <div>
-              <div style="font-size:10px;font-weight:700;color:#6b7280;letter-spacing:.05em;margin-bottom:4px;">GROUPS</div>
+              <div style="font-size:10px;font-weight:700;color:#6b7280;letter-spacing:.05em;margin-bottom:4px;">SECTIONS</div>
               <div id="le-groups-${u.uid}" style="display:flex;gap:8px;flex-wrap:wrap;">
                 ${Object.entries(SITES).filter(([s])=>sites.includes(s)).flatMap(([s,gs])=>gs).map(g=>`<label style="font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="checkbox" class="le-group-${u.uid}" value="${esc(g)}" ${groups.includes(g)?'checked':''}> ${esc(g)}</label>`).join('')}
               </div>
@@ -2035,7 +2032,7 @@ function updateLeaderEditGroups(uid) {
   const container = document.getElementById(`le-groups-${uid}`);
   if (!container) return;
   const groups = checkedSites.flatMap(s => SITES[s] || []);
-  if (!groups.length) { container.innerHTML = '<span style="font-size:12px;color:#9ca3af;">Select a site first</span>'; return; }
+  if (!groups.length) { container.innerHTML = '<span style="font-size:12px;color:#9ca3af;">Select an activity first</span>'; return; }
   container.innerHTML = groups.map(g => `<label style="font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="checkbox" class="le-group-${uid}" value="${esc(g)}"> ${esc(g)}</label>`).join('');
 }
 
@@ -2053,7 +2050,7 @@ function updatePendingGroups(uid) {
   const groups = checkedSites.flatMap(s => SITES[s] || []);
   const container = document.getElementById(`pa-groups-${uid}`);
   if (!container) return;
-  if (!groups.length) { container.innerHTML = '<span style="font-size:12px;color:#9ca3af;">Select a site first</span>'; return; }
+  if (!groups.length) { container.innerHTML = '<span style="font-size:12px;color:#9ca3af;">Select an activity first</span>'; return; }
   container.innerHTML = groups.map(g => `<label style="font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;"><input type="checkbox" class="pa-group-${uid}" value="${esc(g)}"> ${esc(g)}</label>`).join('');
 }
 
@@ -2205,7 +2202,7 @@ function renderIntensiveSection(containerId, rows, totals, isMulti) {
       <div class="table-wrap">
         <table>
           <thead><tr>
-            <th>Site</th><th>Group</th><th>Total Students</th>
+            <th>Activity</th><th>Section</th><th>Total Students</th>
             ${isMulti ? '<th>Days Logged</th><th>Total Present</th><th>Avg/Day</th>' : '<th>Present</th>'}
             <th>Absent</th><th>Attendance %</th><th>Paid</th>
           </tr></thead>
@@ -2305,7 +2302,7 @@ function renderStatCards(containerId, totals, numDays) {
   const el = document.getElementById(containerId);
   el.style.display = '';
   el.innerHTML = `
-    <div class="stat-card"><div class="stat-num">${totals.total}</div><div class="stat-label">Total Campers</div></div>
+    <div class="stat-card"><div class="stat-num">${totals.total}</div><div class="stat-label">Total Students</div></div>
     <div class="stat-card"><div class="stat-num" style="color:#059669;">${avgPresent}</div><div class="stat-label">${isMulti?'Avg Present/Day':'Present'}</div></div>
     <div class="stat-card"><div class="stat-num" style="color:#dc2626;">${avgAbsent}</div><div class="stat-label">${isMulti?'Avg Absent/Day':'Absent'}</div></div>
     <div class="stat-card"><div class="stat-num" style="color:#3b5bf5;">${pct}%</div><div class="stat-label">Attendance Rate</div></div>
@@ -2349,8 +2346,8 @@ function exportCurrentReport() {
   if (!lastReportRows.length) { toast('Load a report first'); return; }
   const isMulti = lastReportType !== 'daily';
   const headers = isMulti
-    ? ['Site','Group','Total Campers','Days Logged','Total Present','Avg/Day','Absent','Attendance %','Paid']
-    : ['Site','Group','Total Campers','Present','Absent','Attendance %','Paid'];
+    ? ['Site','Group','Total Students','Days Logged','Total Present','Avg/Day','Absent','Attendance %','Paid']
+    : ['Site','Group','Total Students','Present','Absent','Attendance %','Paid'];
   const dataRows = lastReportRows.map(r => {
     const pct = r.possible ? Math.round(r.present/r.possible*100) : 0;
     const avg = r.daysWithData ? (r.present/r.daysWithData).toFixed(1) : '0';
@@ -2482,8 +2479,8 @@ async function testEmailNotification() {
   status.textContent = 'Sending…';
   try {
     await sendNotificationEmail(
-      'Brooklyn United Camp — Test Notification',
-      'This is a test email from your Brooklyn United Camp attendance tracker. Email notifications are working!'
+      'Brooklyn United — Afterschool & Saturday Test Notification',
+      'This is a test email from your Brooklyn United Afterschool & Saturday attendance tracker. Email notifications are working!'
     );
     status.textContent = '✓ Test email sent!';
     toast('✓ Test email sent — check your inbox');
@@ -2586,7 +2583,7 @@ function renderRevenueReport() {
 
   const rows = Object.values(map).sort((a,b) => a.site.localeCompare(b.site) || a.group.localeCompare(b.group));
   const tbody = document.getElementById('rev-tbody');
-  if (!rows.length) { tbody.innerHTML = '<tr class="empty-row"><td colspan="7">No campers yet.</td></tr>'; return; }
+  if (!rows.length) { tbody.innerHTML = '<tr class="empty-row"><td colspan="7">No students yet.</td></tr>'; return; }
 
   tbody.innerHTML = rows.map(r => {
     const vBadge = r.vouchers.length ? `<span class="badge-voucher" style="font-size:10px;cursor:pointer;" onclick="toggleVoucherList('vl-${r.site.replace(/\s/g,'')}-${r.group.replace(/\s/g,'')}')">🎫/🎓 ${r.vouchers.length} free-ride ▾</span>` : '';

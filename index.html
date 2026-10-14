@@ -1116,7 +1116,11 @@ function visibleCampers() {
     if (userProfile?.role === 'leader' && !isLeaderCamper(c)) return false;
     if (selectedSite === 'all' && INTENSIVE_SITES.has(c.site)) return false; // Intensive excluded from "All" view
     if (selectedSite !== 'all' && c.site !== selectedSite) return false;
-    if (selectedGroup !== 'all' && c.group !== selectedGroup) return false;
+    if (selectedGroup !== 'all' && c.group !== selectedGroup) {
+      // Still include cross-enrolled HH students when HH group is selected
+      if (selectedGroup === HH_GROUP && c.homeworkHelp) return true;
+      return false;
+    }
     return true;
   });
 }

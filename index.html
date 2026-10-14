@@ -2791,27 +2791,30 @@ function renderRevenueReport() {
   if (!rows.length) { tbody.innerHTML = '<tr class="empty-row"><td colspan="10">No students yet.</td></tr>'; return; }
 
   tbody.innerHTML = rows.map(r => {
-    // Build inline name lists per type
+    const rid = 'vl-' + (r.site + r.group).replace(/[^a-zA-Z0-9]/g, '_');
     const voucherStudents     = r.vouchers.filter(c => c.tuition === 'voucher');
     const scholarshipStudents = r.vouchers.filter(c => c.tuition === 'scholarship');
     const seniorStudents      = r.vouchers.filter(c => c.tuition === 'senior');
-    const nameRow = (voucherStudents.length || scholarshipStudents.length || seniorStudents.length) ? `<tr style="background:#faf5ff;border-bottom:1px solid #ede9fe;"><td colspan="10" style="padding:4px 16px 8px 32px;font-size:11px;">
-      ${voucherStudents.length ? `<span class="badge-voucher" style="font-size:10px;margin-right:4px;">🎫 Voucher</span> ${voucherStudents.map(c=>esc(c.name)).join(', ')}` : ''}
-      ${scholarshipStudents.length ? `<span class="badge-scholarship" style="font-size:10px;margin-left:${voucherStudents.length?'12px':'0'};margin-right:4px;">🎓 Scholarship</span> ${scholarshipStudents.map(c=>esc(c.name)).join(', ')}` : ''}
-      ${seniorStudents.length ? `<span class="badge-senior" style="font-size:10px;margin-left:${(voucherStudents.length||scholarshipStudents.length)?'12px':'0'};margin-right:4px;">👴 Senior</span> ${seniorStudents.map(c=>esc(c.name)).join(', ')}` : ''}
-    </td></tr>` : '';
+    const vList = r.vouchers.length ? `<tr id="${rid}" style="display:none;background:#faf5ff;border-bottom:1px solid #ede9fe;">
+      <td colspan="10" style="padding:6px 16px 10px 32px;font-size:12px;line-height:1.8;">
+        ${voucherStudents.length ? `<span class="badge-voucher" style="font-size:10px;margin-right:6px;">🎫 Voucher</span>${voucherStudents.map(c=>`<span style="color:#374151;">${esc(c.name)}</span>`).join(', ')}<br>` : ''}
+        ${scholarshipStudents.length ? `<span class="badge-scholarship" style="font-size:10px;margin-right:6px;">🎓 Scholarship</span>${scholarshipStudents.map(c=>`<span style="color:#374151;">${esc(c.name)}</span>`).join(', ')}<br>` : ''}
+        ${seniorStudents.length ? `<span class="badge-senior" style="font-size:10px;margin-right:6px;">👴 Senior</span>${seniorStudents.map(c=>`<span style="color:#374151;">${esc(c.name)}</span>`).join(', ')}` : ''}
+      </td>
+    </tr>` : '';
+    const toggleBtn = r.vouchers.length ? `onclick="toggleVoucherList('${rid}')"` : '';
     return `<tr>
       <td><span style="font-size:11px;font-weight:700;color:${siteColor(r.rawSite)}">${esc(r.site)}</span></td>
       <td><span class="badge badge-blue">${esc(r.group)}</span></td>
       <td style="text-align:right;">${r.count}</td>
       <td style="text-align:right;">$${r.expected.toFixed(2)}</td>
       <td style="text-align:right;">${r.paidCount || '<span style="color:#9ca3af;">—</span>'}</td>
-      <td style="text-align:right;">${r.voucherCount ? `<span class="badge-voucher" style="font-size:11px;">${r.voucherCount}</span>` : '<span style="color:#9ca3af;">—</span>'}</td>
-      <td style="text-align:right;">${r.scholarshipCount ? `<span class="badge-scholarship" style="font-size:11px;">${r.scholarshipCount}</span>` : '<span style="color:#9ca3af;">—</span>'}</td>
-      <td style="text-align:right;">${r.seniorCount ? `<span class="badge-senior" style="font-size:11px;">${r.seniorCount}</span>` : '<span style="color:#9ca3af;">—</span>'}</td>
+      <td style="text-align:right;">${r.voucherCount ? `<span class="badge-voucher" style="font-size:11px;cursor:pointer;" ${toggleBtn}>${r.voucherCount} ▾</span>` : '<span style="color:#9ca3af;">—</span>'}</td>
+      <td style="text-align:right;">${r.scholarshipCount ? `<span class="badge-scholarship" style="font-size:11px;cursor:pointer;" ${toggleBtn}>${r.scholarshipCount} ▾</span>` : '<span style="color:#9ca3af;">—</span>'}</td>
+      <td style="text-align:right;">${r.seniorCount ? `<span class="badge-senior" style="font-size:11px;cursor:pointer;" ${toggleBtn}>${r.seniorCount} ▾</span>` : '<span style="color:#9ca3af;">—</span>'}</td>
       <td style="text-align:right;color:#059669;">$${r.collected.toFixed(2)}</td>
       <td style="text-align:right;color:#dc2626;">$${(r.expected-r.collected).toFixed(2)}</td>
-    </tr>${nameRow}`;
+    </tr>${vList}`;
   }).join('') +
   `<tr style="font-weight:700;background:#f8fafc;border-top:2px solid #e5e7eb;">
     <td colspan="2">Grand Total</td>

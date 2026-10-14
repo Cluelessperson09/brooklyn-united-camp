@@ -475,11 +475,8 @@
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
               <div>
                 <label class="field-label">Default Activity (for rows without auto-detected activity)</label>
-                <select id="upload-site" class="input">
-                  <option value="">— Select default site —</option>
-                  <option value="Bedstuy">Bedstuy</option>
-                  <option value="Canarsie">Canarsie</option>
-                  <option value="Intensive">Intensive</option>
+                <select id="upload-site" class="input" onchange="updateLeaderGroupOpts('upload-group','upload-site')">
+                  <option value="">— Select default activity —</option>
                 </select>
               </div>
               <div>
@@ -954,6 +951,8 @@ function wireEvents() {
   if (moveSiteEl) moveSiteEl.insertAdjacentHTML('beforeend', siteOpts);
   const expSiteEl = document.getElementById('exp-site');
   if (expSiteEl) expSiteEl.insertAdjacentHTML('beforeend', siteOpts);
+  const uploadSiteEl = document.getElementById('upload-site');
+  if (uploadSiteEl) uploadSiteEl.insertAdjacentHTML('beforeend', siteOpts);
 
   // Populate leader site checkboxes dynamically from SITES constant
   const siteChecksEl = document.getElementById('l-site-checks');
@@ -1381,9 +1380,9 @@ function normalizeRow(row) {
     } else if (['paid','tuitionpaid','ispaid','paymentstatus','paymentstatus','paidstatus'].includes(lk)) {
       const raw = String(row[k]).trim().toLowerCase();
       out.tuitionPaid = ['yes','true','1','paid','x','y','✓','✔'].includes(raw);
-    } else if (['site','location','campus'].includes(lk)) {
+    } else if (['site','location','campus','activity','program'].includes(lk)) {
       out.site = String(row[k]).trim();
-    } else if (['group','groupname','class','division','team','program'].includes(lk)) {
+    } else if (['group','groupname','class','division','team','section','sectionname'].includes(lk)) {
       out.group = String(row[k]).trim();
     }
   });

@@ -355,6 +355,11 @@
           <p id="leader-site-label" class="text-gray text-sm" style="margin-top:2px;"></p>
         </div>
         <div style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <select id="leader-activity-filter" class="input" style="width:auto;" onchange="leaderActivityFilter=this.value;renderLeaderTable()">
+            <option value="all">All Activities</option>
+            <option value="Afterschool">Afterschool</option>
+            <option value="Saturday">Saturday</option>
+          </select>
           <input type="date" id="leader-date-picker" class="input" style="width:auto;">
         </div>
       </div>
@@ -367,7 +372,7 @@
 
       <div style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
         <div class="search-wrap" style="flex:1;min-width:180px;">
-          <input type="text" id="leader-search" class="input" placeholder="Search camper name…" oninput="leaderSearchQuery=this.value.trim();renderLeaderTable()">
+          <input type="text" id="leader-search" class="input" placeholder="Search student name…" oninput="leaderSearchQuery=this.value.trim();renderLeaderTable()">
         </div>
         <button class="btn btn-green btn-sm" onclick="markAllLeader(true)">✓ Mark All Present</button>
         <button class="btn btn-secondary btn-sm" onclick="markAllLeader(false)">✗ Clear Attendance</button>
@@ -409,7 +414,7 @@
         <div class="flex flex-wrap gap-12 items-center" style="margin-bottom:12px;">
           <input type="date" id="admin-date-picker" class="input" style="width:auto;">
           <div class="search-wrap">
-            <input type="text" id="admin-search" class="input" placeholder="Search camper name…" oninput="searchQuery=this.value.trim();renderAdminTable()">
+            <input type="text" id="admin-search" class="input" placeholder="Search student name…" oninput="searchQuery=this.value.trim();renderAdminTable()">
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-left:auto;">
             <button class="btn btn-green btn-sm" onclick="markAll(true)">✓ All Present</button>
@@ -502,7 +507,7 @@
         <!-- Roster search + bulk bar -->
         <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center;">
           <div class="search-wrap" style="flex:1;">
-            <input type="text" id="roster-search" class="input" placeholder="Search camper name…" oninput="rosterSearchQuery=this.value.trim();renderRosterTable()">
+            <input type="text" id="roster-search" class="input" placeholder="Search student name…" oninput="rosterSearchQuery=this.value.trim();renderRosterTable()">
           </div>
         </div>
         <div class="bulk-bar" id="bulk-bar">
@@ -792,6 +797,7 @@ let pendingRemoveId = null;
 let pendingRemoveIds = [];
 let searchQuery = '';
 let leaderSearchQuery = '';
+let leaderActivityFilter = 'all';
 let rosterSearchQuery = '';
 let selectedRosterIds = new Set();
 let selectedSite = 'all';
@@ -1256,6 +1262,10 @@ function getLeaderCampers() {
 
 function renderLeaderTable() {
   let campers = getLeaderCampers();
+  // Filter by selected activity (Afterschool / Saturday)
+  if (leaderActivityFilter && leaderActivityFilter !== 'all') {
+    campers = campers.filter(c => c.site === leaderActivityFilter);
+  }
   if (leaderSearchQuery) {
     const q = leaderSearchQuery.toLowerCase();
     campers = campers.filter(c => c.name.toLowerCase().includes(q));
@@ -1263,7 +1273,7 @@ function renderLeaderTable() {
   const tbody = document.getElementById('leader-tbody');
   if (!campers.length) {
     const msg = leaderSearchQuery
-      ? `No camper found by the name "<strong>${esc(leaderSearchQuery)}</strong>". Please check the spelling.`
+      ? `No student found by the name "<strong>${esc(leaderSearchQuery)}</strong>". Please check the spelling.`
       : 'No students in your group yet.';
     tbody.innerHTML = `<tr class="empty-row"><td colspan="4">${msg}</td></tr>`; return;
   }
@@ -1296,7 +1306,10 @@ function renderLeaderTable() {
 }
 
 function updateLeaderStats() {
-  const campers = getLeaderCampers();
+  let campers = getLeaderCampers();
+  if (leaderActivityFilter && leaderActivityFilter !== 'all') {
+    campers = campers.filter(c => c.site === leaderActivityFilter);
+  }
   document.getElementById('l-total').textContent   = campers.length;
   document.getElementById('l-present').textContent = campers.filter(c => attendanceData[c.id]?.present).length;
   document.getElementById('l-paid').textContent    = campers.filter(c => c.tuitionPaid || c.tuition === 'voucher' || c.tuition === 'scholarship').length;

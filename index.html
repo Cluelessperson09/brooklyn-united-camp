@@ -545,7 +545,7 @@
           <div class="table-wrap">
             <div style="padding:14px 18px;background:#fff;border-bottom:1px solid #e5e7eb;">
               <p style="font-weight:700;">Dropped / Removed (<span id="dropped-count">0</span>)</p>
-              <p class="text-gray text-sm">Restore campers or permanently delete them.</p>
+              <p class="text-gray text-sm">Restore students or permanently delete them.</p>
             </div>
             <table>
               <thead><tr><th class="check-col"><input type="checkbox" id="select-all-dropped" onclick="toggleSelectAllDropped(this.checked)" title="Select all"></th><th>Name</th><th>Activity</th><th>Section</th><th>Removed On</th><th>Reason</th><th style="width:100px;"></th></tr></thead>
@@ -611,7 +611,7 @@
         <!-- Email Notifications Settings (admin only) -->
         <div class="card mt-16" style="margin-top:20px;">
           <div class="section-title">📧 Email Notifications</div>
-          <p class="text-gray text-sm" style="margin-bottom:14px;">Get an email when a note is added, a camper is transferred, or a camper is dropped. Uses <a href="https://www.emailjs.com" target="_blank" style="color:#3b5bf5;">EmailJS</a> (free, no backend needed).</p>
+          <p class="text-gray text-sm" style="margin-bottom:14px;">Get an email when a note is added, a student is transferred, or a student is dropped. Uses <a href="https://www.emailjs.com" target="_blank" style="color:#3b5bf5;">EmailJS</a> (free, no backend needed).</p>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
             <div><label class="field-label">EmailJS Public Key</label><input id="ejs-pubkey" class="input" placeholder="e.g. abc123XYZ" autocomplete="off"></div>
             <div><label class="field-label">Service ID</label><input id="ejs-service" class="input" placeholder="e.g. service_xxxxxx"></div>
@@ -719,7 +719,7 @@
           </div>
           <div class="card" style="margin-bottom:16px;padding:0;">
             <div style="padding:14px 18px;border-bottom:1px solid #e5e7eb;font-weight:700;font-size:14px;">🚫 Dropped Students</div>
-            <div id="act-drops-list"><div class="activity-item"><span class="activity-icon">ℹ️</span><span class="activity-text text-gray">No dropped campers.</span></div></div>
+            <div id="act-drops-list"><div class="activity-item"><span class="activity-icon">ℹ️</span><span class="activity-text text-gray">No dropped students.</span></div></div>
           </div>
           <div class="card" style="padding:0;">
             <div style="padding:14px 18px;border-bottom:1px solid #e5e7eb;font-weight:700;font-size:14px;">↗ Group Transfers</div>
@@ -761,7 +761,7 @@
         <div id="report-export" style="display:none;">
           <div class="card">
             <div class="section-title">Export Attendance Data</div>
-            <p class="text-gray text-sm" style="margin-bottom:16px;">Download a CSV with all campers' attendance for a custom date range.</p>
+            <p class="text-gray text-sm" style="margin-bottom:16px;">Download a CSV with all students' attendance for a custom date range.</p>
             <div class="flex flex-wrap gap-12 items-center">
               <div><label class="field-label">From</label><input type="date" id="exp-from" class="input" style="width:auto;"></div>
               <div><label class="field-label">To</label><input type="date" id="exp-to" class="input" style="width:auto;"></div>
@@ -1202,7 +1202,7 @@ function renderAdminTable() {
   const tbody = document.getElementById('admin-tbody');
   if (!campers.length) {
     const msg = searchQuery
-      ? `No camper found by the name "<strong>${esc(searchQuery)}</strong>". Please check the spelling.`
+      ? `No student found by the name "<strong>${esc(searchQuery)}</strong>". Please check the spelling.`
       : 'No students found. Upload a roster first.';
     tbody.innerHTML = `<tr class="empty-row"><td colspan="7">${msg}</td></tr>`; updateAdminStats(); return;
   }
@@ -1480,11 +1480,11 @@ function previewRoster(data, filename) {
   const defaultGroupVal = document.getElementById('upload-group')?.value || '—';
   const newCount    = rows.filter(r => !existingMap[r.name.trim().toLowerCase() + '|' + (r.site||defaultSiteVal).toLowerCase()]).length;
   const updateCount = rows.length - newCount;
-  let titleSuffix = `${rows.length} campers found`;
+  let titleSuffix = `${rows.length} students found`;
   if (updateCount > 0) titleSuffix += ` — <span style="color:#16a34a;font-weight:700;">${newCount} new</span>, <span style="color:#1d4ed8;font-weight:700;">${updateCount} will update</span>`;
   document.getElementById('preview-title').innerHTML = `${esc(filename)} — ${titleSuffix}`;
   document.getElementById('preview-head').innerHTML =
-    '<tr>' + ['','Name','Site','Group','Notes','Tuition','Paid'].map(c => `<th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;">${c}</th>`).join('') + '</tr>';
+    '<tr>' + ['','Name','Program Name','Section','Notes','Tuition','Paid'].map(c => `<th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;">${c}</th>`).join('') + '</tr>';
   const preview = rows.slice(0, 8);
   document.getElementById('preview-body').innerHTML = preview.map(r => {
     const isUpdate = !!existingMap[r.name.trim().toLowerCase() + '|' + (r.site||defaultSiteVal).toLowerCase()];
@@ -2220,7 +2220,7 @@ async function loadActivityReport() {
   // Drops list
   const dropsList = document.getElementById('act-drops-list');
   if (!removedCampers.length) {
-    dropsList.innerHTML = '<div style="padding:14px 18px;color:#9ca3af;font-size:13px;">No dropped campers.</div>';
+    dropsList.innerHTML = '<div style="padding:14px 18px;color:#9ca3af;font-size:13px;">No dropped students.</div>';
   } else {
     dropsList.innerHTML = removedCampers.map(c => {
       const dateStr = c.removedAt?.toDate ? c.removedAt.toDate().toLocaleDateString() : '—';

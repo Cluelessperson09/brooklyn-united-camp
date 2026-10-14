@@ -368,7 +368,7 @@
       <div class="stats stats-3" style="margin-bottom:20px;">
         <div class="stat-card"><div class="stat-num" id="l-total">0</div><div class="stat-label">Students</div></div>
         <div class="stat-card"><div class="stat-num" id="l-present" style="color:#059669;">0</div><div class="stat-label">Present</div></div>
-        <div class="stat-card"><div class="stat-num" id="l-paid" style="color:#3b5bf5;">0</div><div class="stat-label">Paid</div></div>
+        <div class="stat-card" title="Includes voucher, scholarship, and senior (free-ride) students"><div class="stat-num" id="l-paid" style="color:#3b5bf5;">0</div><div class="stat-label">Tuition Settled</div></div>
       </div>
 
       <div style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
@@ -428,7 +428,7 @@
           <div class="stat-card"><div class="stat-num" id="a-total">0</div><div class="stat-label">Total Students</div></div>
           <div class="stat-card"><div class="stat-num" id="a-present" style="color:#059669;">0</div><div class="stat-label">Present</div></div>
           <div class="stat-card"><div class="stat-num" id="a-absent" style="color:#dc2626;">0</div><div class="stat-label">Absent</div></div>
-          <div class="stat-card"><div class="stat-num" id="a-paid" style="color:#3b5bf5;">0</div><div class="stat-label">Paid</div></div>
+          <div class="stat-card" title="Includes voucher, scholarship, and senior (free-ride) students"><div class="stat-num" id="a-paid" style="color:#3b5bf5;">0</div><div class="stat-label">Tuition Settled</div></div>
         </div>
 
         <div class="table-wrap">
@@ -1159,7 +1159,7 @@ const HH_GROUP = 'Homework Help Only';
 
 // Afterschool sub-program mapping
 const DANCE_GROUPS = new Set(['Level 1 Dance', 'Shimmer', 'Sparkle', 'Silver']);
-const DRUM_GROUPS  = new Set(['Level 1 Drum', 'Jr. Drums', 'NBU', 'EVO', 'EVE']);
+const DRUM_GROUPS  = new Set(['Level 1 Drum', 'Level 1 Drums', 'Jr. Drums', 'Jr Drums', 'NBU', 'EVO', 'EVE']);
 
 function displayProgram(site, group) {
   if (site === 'Afterschool') {
@@ -2788,30 +2788,30 @@ function renderRevenueReport() {
 
   const rows = Object.values(map).sort((a,b) => a.site.localeCompare(b.site) || a.group.localeCompare(b.group));
   const tbody = document.getElementById('rev-tbody');
-  if (!rows.length) { tbody.innerHTML = '<tr class="empty-row"><td colspan="9">No students yet.</td></tr>'; return; }
+  if (!rows.length) { tbody.innerHTML = '<tr class="empty-row"><td colspan="10">No students yet.</td></tr>'; return; }
 
   tbody.innerHTML = rows.map(r => {
-    const vBadge = r.vouchers.length ? `<span class="badge-voucher" style="font-size:10px;cursor:pointer;" onclick="toggleVoucherList('vl-${r.site.replace(/\s/g,'')}-${r.group.replace(/\s/g,'')}')">🎫/🎓/👴 ${r.vouchers.length} free-ride ▾</span>` : '';
-    const vList  = r.vouchers.length ? `<tr id="vl-${r.site.replace(/\s/g,'')}-${r.group.replace(/\s/g,'')}" style="display:none;background:#faf5ff;">
-      <td colspan="9" style="padding:8px 24px;">
-        <strong style="font-size:11px;color:#7c3aed;">Voucher / Scholarship / Senior Students:</strong>
-        <ul style="margin:4px 0 0 0;padding-left:20px;font-size:12px;color:#6b7280;">
-          ${r.vouchers.map(c=>`<li>${esc(c.name)} <span style="color:#9ca3af;">(${c.tuition === 'scholarship' ? 'Scholarship' : c.tuition === 'senior' ? 'Senior' : 'Voucher'})</span></li>`).join('')}
-        </ul>
-      </td>
-    </tr>` : '';
+    // Build inline name lists per type
+    const voucherStudents     = r.vouchers.filter(c => c.tuition === 'voucher');
+    const scholarshipStudents = r.vouchers.filter(c => c.tuition === 'scholarship');
+    const seniorStudents      = r.vouchers.filter(c => c.tuition === 'senior');
+    const nameRow = (voucherStudents.length || scholarshipStudents.length || seniorStudents.length) ? `<tr style="background:#faf5ff;border-bottom:1px solid #ede9fe;"><td colspan="10" style="padding:4px 16px 8px 32px;font-size:11px;">
+      ${voucherStudents.length ? `<span class="badge-voucher" style="font-size:10px;margin-right:4px;">🎫 Voucher</span> ${voucherStudents.map(c=>esc(c.name)).join(', ')}` : ''}
+      ${scholarshipStudents.length ? `<span class="badge-scholarship" style="font-size:10px;margin-left:${voucherStudents.length?'12px':'0'};margin-right:4px;">🎓 Scholarship</span> ${scholarshipStudents.map(c=>esc(c.name)).join(', ')}` : ''}
+      ${seniorStudents.length ? `<span class="badge-senior" style="font-size:10px;margin-left:${(voucherStudents.length||scholarshipStudents.length)?'12px':'0'};margin-right:4px;">👴 Senior</span> ${seniorStudents.map(c=>esc(c.name)).join(', ')}` : ''}
+    </td></tr>` : '';
     return `<tr>
       <td><span style="font-size:11px;font-weight:700;color:${siteColor(r.rawSite)}">${esc(r.site)}</span></td>
       <td><span class="badge badge-blue">${esc(r.group)}</span></td>
       <td style="text-align:right;">${r.count}</td>
       <td style="text-align:right;">$${r.expected.toFixed(2)}</td>
       <td style="text-align:right;">${r.paidCount || '<span style="color:#9ca3af;">—</span>'}</td>
-      <td style="text-align:right;">${r.voucherCount ? `<span class="badge-voucher" style="font-size:11px;cursor:pointer;" onclick="toggleVoucherList('vl-${r.site.replace(/\s/g,'')}-${r.group.replace(/\s/g,'')}')">${r.voucherCount} ▾</span>` : '<span style="color:#9ca3af;">—</span>'}</td>
-      <td style="text-align:right;">${r.scholarshipCount ? `<span class="badge-scholarship" style="font-size:11px;cursor:pointer;" onclick="toggleVoucherList('vl-${r.site.replace(/\s/g,'')}-${r.group.replace(/\s/g,'')}')">${r.scholarshipCount} ▾</span>` : '<span style="color:#9ca3af;">—</span>'}</td>
-      <td style="text-align:right;">${r.seniorCount ? `<span class="badge-senior" style="font-size:11px;cursor:pointer;" onclick="toggleVoucherList('vl-${r.site.replace(/\s/g,'')}-${r.group.replace(/\s/g,'')}')">${r.seniorCount} ▾</span>` : '<span style="color:#9ca3af;">—</span>'}</td>
+      <td style="text-align:right;">${r.voucherCount ? `<span class="badge-voucher" style="font-size:11px;">${r.voucherCount}</span>` : '<span style="color:#9ca3af;">—</span>'}</td>
+      <td style="text-align:right;">${r.scholarshipCount ? `<span class="badge-scholarship" style="font-size:11px;">${r.scholarshipCount}</span>` : '<span style="color:#9ca3af;">—</span>'}</td>
+      <td style="text-align:right;">${r.seniorCount ? `<span class="badge-senior" style="font-size:11px;">${r.seniorCount}</span>` : '<span style="color:#9ca3af;">—</span>'}</td>
       <td style="text-align:right;color:#059669;">$${r.collected.toFixed(2)}</td>
       <td style="text-align:right;color:#dc2626;">$${(r.expected-r.collected).toFixed(2)}</td>
-    </tr>${vList}`;
+    </tr>${nameRow}`;
   }).join('') +
   `<tr style="font-weight:700;background:#f8fafc;border-top:2px solid #e5e7eb;">
     <td colspan="2">Grand Total</td>

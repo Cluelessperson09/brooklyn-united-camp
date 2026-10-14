@@ -529,7 +529,7 @@
             </div>
           </div>
           <table>
-            <thead><tr><th class="check-col"><input type="checkbox" id="select-all-roster" onclick="toggleSelectAll(this.checked)" title="Select all"></th><th>Name</th><th>Activity</th><th>Section</th><th class="hide-mobile">Notes</th><th style="text-align:right;">Tuition</th><th style="width:90px;"></th></tr></thead>
+            <thead><tr><th class="check-col"><input type="checkbox" id="select-all-roster" onclick="toggleSelectAll(this.checked)" title="Select all"></th><th>Name</th><th>Activity</th><th>Section</th><th class="hide-mobile">Notes</th><th style="text-align:center;" title="Also attends Homework Help">HH</th><th style="text-align:right;">Tuition</th><th style="width:90px;"></th></tr></thead>
             <tbody id="roster-tbody"></tbody>
           </table>
         </div>
@@ -1123,10 +1123,18 @@ function visibleCampers() {
 
 // ─── ADMIN TABLE ─────────────────────────────
 // Returns true if camper belongs to the current leader's assigned sites/groups
+const HH_GROUP = 'Homework Help Only';
+function isHHLeader() {
+  if (userProfile?.role !== 'leader') return false;
+  const groups = userProfile.groups?.length ? userProfile.groups : (userProfile.group ? [userProfile.group] : []);
+  return groups.includes(HH_GROUP);
+}
 function isLeaderCamper(c) {
   if (!c || userProfile?.role !== 'leader') return true;
   const groups = userProfile.groups?.length ? userProfile.groups : (userProfile.group ? [userProfile.group] : []);
   const sites  = userProfile.sites?.length  ? userProfile.sites  : (userProfile.site  ? [userProfile.site]  : []);
+  // HH leaders also see cross-enrolled students (homeworkHelp: true)
+  if (isHHLeader() && c.homeworkHelp) return true;
   return (!sites.length  || sites.includes(c.site)) &&
          (!groups.length || groups.includes(c.group));
 }
@@ -1262,10 +1270,12 @@ function getLeaderCampers() {
   const sites  = p.sites  && p.sites.length  ? p.sites  : (p.site  ? [p.site]  : []);
   const groups = p.groups && p.groups.length ? p.groups : (p.group ? [p.group] : []);
   if (!sites.length && !groups.length) return allCampers;
-  return allCampers.filter(c =>
-    (!sites.length  || sites.includes(c.site)) &&
-    (!groups.length || groups.includes(c.group))
-  );
+  return allCampers.filter(c => {
+    // HH leaders see their own HH-only students AND any cross-enrolled (homeworkHelp) students
+    if (isHHLeader() && c.homeworkHelp) return true;
+    return (!sites.length  || sites.includes(c.site)) &&
+           (!groups.length || groups.includes(c.group));
+  });
 }
 
 function renderLeaderTable() {
@@ -1530,7 +1540,7 @@ function renderRosterTable() {
     const msg = rosterSearchQuery
       ? `No student found by the name "<strong>${esc(rosterSearchQuery)}</strong>". Please check the spelling.`
       : 'No students yet. Upload a roster above.';
-    tbody.innerHTML = `<tr class="empty-row"><td colspan="7">${msg}</td></tr>`; return;
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="8">${msg}</td></tr>`; return;
   }
   tbody.innerHTML = campers.map(c => {
     const canEdit = isLeaderCamper(c); // admins always true; leaders only for their groups
@@ -1542,6 +1552,13 @@ function renderRosterTable() {
       <td><span style="font-size:11px;font-weight:700;color:${siteColor(c.site)}">${esc(c.site||'—')}</span></td>
       <td><span class="badge badge-blue">${esc(c.group||'—')}</span></td>
       <td class="hide-mobile text-gray text-sm">${esc(c.notes||'—')}</td>
+      <td style="text-align:center;">
+        ${c.group === 'Homework Help Only' ? '<span title="Primary HH student" style="color:#6b7280;font-size:11px;">—</span>' :
+          userProfile?.role === 'admin'
+            ? `<label title="Also attends Homework Help" style="cursor:pointer;"><input type="checkbox" ${c.homeworkHelp?'checked':''} onchange="saveHomeworkHelp('${c.id}',this.checked)" style="width:14px;height:14px;cursor:pointer;"></label>`
+            : (c.homeworkHelp ? '<span style="color:#7c3aed;font-weight:700;font-size:12px;">✓</span>' : '<span style="color:#d1d5db;font-size:11px;">—</span>')
+        }
+      </td>
       <td style="text-align:right;">
         ${c.tuition === 'voucher' || c.tuition === 'scholarship' || c.tuition === 'senior'
           ? `<span class="${c.tuition === 'scholarship' ? 'badge-scholarship' : c.tuition === 'senior' ? 'badge-senior' : 'badge-voucher'}">${c.tuition === 'scholarship' ? '🎓 Scholarship' : c.tuition === 'senior' ? '👴 Senior' : '🎫 Voucher'}</span>${userProfile?.role==='admin' ? `<br><button class="btn btn-sm" style="font-size:10px;margin-top:3px;padding:2px 6px;" onclick="saveTuition('${c.id}','clear')">✕</button>` : ''}`
@@ -2546,6 +2563,14 @@ function hideErr(id) { document.getElementById(id).style.display = 'none'; }
 </script>
 
 <script>
+// ─── HOMEWORK HELP TOGGLE ────────────────────────────────────────────────────
+async function saveHomeworkHelp(id, val) {
+  await db.collection('campers').doc(id).update({ homeworkHelp: !!val });
+  const c = allCampers.find(x => x.id === id);
+  if (c) c.homeworkHelp = !!val;
+  renderRosterTable();
+}
+
 // ─── TUITION SAVE ────────────────────────────────────────────────────────────
 async function saveTuition(id, val) {
   const c = allCampers.find(x => x.id === id);
@@ -2582,8 +2607,9 @@ function renderRevenueReport() {
   // Guard: elements might not exist if admin hasn't opened report yet
   if (!document.getElementById('rev-expected')) return;
 
-  const voucherCampers = allCampers.filter(c => c.tuition === 'voucher' || c.tuition === 'scholarship' || c.tuition === 'senior');
-  const payingCampers  = allCampers.filter(c => c.tuition != null && c.tuition !== 'voucher' && c.tuition !== 'scholarship' && c.tuition !== 'senior');
+  const revCampers     = allCampers.filter(c => c.group !== HH_GROUP); // exclude HH-only from revenue
+  const voucherCampers = revCampers.filter(c => c.tuition === 'voucher' || c.tuition === 'scholarship' || c.tuition === 'senior');
+  const payingCampers  = revCampers.filter(c => c.tuition != null && c.tuition !== 'voucher' && c.tuition !== 'scholarship' && c.tuition !== 'senior');
   const voucherCount   = voucherCampers.length;
   const totalExpected  = payingCampers.reduce((s,c) => s + (Number(c.tuition)||0), 0);
   const totalPaid      = payingCampers.filter(c => c.tuitionPaid).reduce((s,c) => s + (Number(c.tuition)||0), 0);
@@ -2599,6 +2625,7 @@ function renderRevenueReport() {
   // Group by site → group
   const map = {};
   allCampers.forEach(c => {
+    if (c.group === HH_GROUP) return; // Homework Help Only excluded from revenue
     const site  = c.site  || '—';
     const group = c.group || '—';
     const key   = site + '||' + group;
@@ -2649,12 +2676,12 @@ function renderRevenueReport() {
   }).join('') +
   `<tr style="font-weight:700;background:#f8fafc;border-top:2px solid #e5e7eb;">
     <td colspan="2">Grand Total</td>
-    <td style="text-align:right;">${allCampers.length}</td>
+    <td style="text-align:right;">${revCampers.length}</td>
     <td style="text-align:right;">$${totalExpected.toFixed(2)}</td>
-    <td style="text-align:right;">${allCampers.filter(c=>c.tuitionPaid && c.tuition!=='voucher' && c.tuition!=='scholarship' && c.tuition!=='senior').length}</td>
-    <td style="text-align:right;">${allCampers.filter(c=>c.tuition==='voucher').length || '—'}</td>
-    <td style="text-align:right;">${allCampers.filter(c=>c.tuition==='scholarship').length || '—'}</td>
-    <td style="text-align:right;">${allCampers.filter(c=>c.tuition==='senior').length || '—'}</td>
+    <td style="text-align:right;">${revCampers.filter(c=>c.tuitionPaid && c.tuition!=='voucher' && c.tuition!=='scholarship' && c.tuition!=='senior').length}</td>
+    <td style="text-align:right;">${revCampers.filter(c=>c.tuition==='voucher').length || '—'}</td>
+    <td style="text-align:right;">${revCampers.filter(c=>c.tuition==='scholarship').length || '—'}</td>
+    <td style="text-align:right;">${revCampers.filter(c=>c.tuition==='senior').length || '—'}</td>
     <td style="text-align:right;color:#059669;">$${totalPaid.toFixed(2)}</td>
     <td style="text-align:right;color:#dc2626;">$${outstanding.toFixed(2)}</td>
   </tr>`;

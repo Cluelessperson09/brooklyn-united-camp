@@ -403,7 +403,7 @@
       <div id="tab-attendance">
         <!-- Site filter -->
         <div style="margin-bottom:10px;">
-          <div class="text-sm text-gray" style="margin-bottom:6px;font-weight:600;">SITE</div>
+          <div class="text-sm text-gray" style="margin-bottom:6px;font-weight:600;">PROGRAM</div>
           <div id="site-pills" class="flex flex-wrap gap-8"></div>
         </div>
         <!-- Group filter -->
@@ -1034,6 +1034,23 @@ async function fetchCampers() {
   });
   allCampers    = all.filter(c => !c.removed);
   removedCampers = all.filter(c => c.removed);
+
+  // Auto-fix students where site was stored as a group name (e.g. Saturday CSV Activity column mapped wrong)
+  const fixes = [];
+  [...allCampers, ...removedCampers].forEach(c => {
+    const correctSite = detectSite(c.site); // if c.site is actually a group name, returns its parent site
+    if (correctSite && c.site !== correctSite) {
+      const oldSite = c.site;
+      c.group = oldSite;
+      c.site  = correctSite;
+      fixes.push({ id: c.id, site: correctSite, group: oldSite });
+    }
+  });
+  if (fixes.length) {
+    const batch = db.batch();
+    fixes.forEach(f => batch.update(db.collection('campers').doc(f.id), { site: f.site, group: f.group }));
+    await batch.commit().catch(() => {}); // silent — data already fixed in memory
+  }
 }
 
 async function fetchUsers() {

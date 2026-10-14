@@ -2688,7 +2688,20 @@ function renderRevenueReport() {
     <td style="text-align:right;">${revCampers.filter(c=>c.tuition==='senior').length || '—'}</td>
     <td style="text-align:right;color:#059669;">$${totalPaid.toFixed(2)}</td>
     <td style="text-align:right;color:#dc2626;">$${outstanding.toFixed(2)}</td>
-  </tr>`;
+  </tr>
+  ${(() => {
+    const hhOnly = allCampers.filter(c => c.group === HH_GROUP).length;
+    const hhCross = allCampers.filter(c => c.group !== HH_GROUP && c.homeworkHelp).length;
+    const hhTotal = hhOnly + hhCross;
+    if (!hhTotal) return '';
+    return `<tr style="background:#f0fdf4;border-top:1px solid #bbf7d0;">
+      <td colspan="2" style="color:#065f46;font-size:12px;">📚 Homework Help (not in totals)</td>
+      <td style="text-align:right;color:#065f46;font-size:12px;">${hhTotal}</td>
+      <td colspan="6" style="text-align:left;color:#6b7280;font-size:11px;padding-left:8px;">
+        ${hhOnly} HH-only students + ${hhCross} cross-enrolled from other sections
+      </td>
+    </tr>`;
+  })()}`;
 }
 
 function toggleVoucherList(id) {

@@ -529,7 +529,7 @@
             </div>
           </div>
           <table>
-            <thead><tr><th class="check-col"><input type="checkbox" id="select-all-roster" onclick="toggleSelectAll(this.checked)" title="Select all"></th><th>Name</th><th>Activity</th><th>Section</th><th class="hide-mobile">Notes</th><th style="text-align:center;" title="Also attends Homework Help">HH</th><th style="text-align:right;">Tuition</th><th style="width:90px;"></th></tr></thead>
+            <thead><tr><th class="check-col"><input type="checkbox" id="select-all-roster" onclick="toggleSelectAll(this.checked)" title="Select all"></th><th>Name</th><th>Program Name</th><th>Section</th><th class="hide-mobile">Notes</th><th style="text-align:center;" title="Also attends Homework Help">HH</th><th style="text-align:right;">Tuition</th><th style="width:90px;"></th></tr></thead>
             <tbody id="roster-tbody"></tbody>
           </table>
         </div>
@@ -659,7 +659,7 @@
           <div class="stats stats-4" id="daily-stats" style="margin-bottom:16px;display:none;"></div>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Activity</th><th>Section</th><th>Total</th><th style="color:#059669;">Present</th><th style="color:#dc2626;">Absent</th><th>Attendance %</th><th style="color:#3b5bf5;">Paid</th></tr></thead>
+              <thead><tr><th>Program Name</th><th>Section</th><th>Total</th><th style="color:#059669;">Present</th><th style="color:#dc2626;">Absent</th><th>Attendance %</th><th style="color:#3b5bf5;">Paid</th></tr></thead>
               <tbody id="daily-report-body"><tr class="empty-row"><td colspan="7">Select a date and click Load Report</td></tr></tbody>
             </table>
           </div>
@@ -680,7 +680,7 @@
           <div class="stats stats-4" id="weekly-stats" style="margin-bottom:16px;display:none;"></div>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Activity</th><th>Section</th><th>Total</th><th>Days Logged</th><th style="color:#059669;">Total Present</th><th>Avg/Day</th><th>Attendance %</th><th style="color:#3b5bf5;">Paid</th></tr></thead>
+              <thead><tr><th>Program Name</th><th>Section</th><th>Total</th><th>Days Logged</th><th style="color:#059669;">Total Present</th><th>Avg/Day</th><th>Attendance %</th><th style="color:#3b5bf5;">Paid</th></tr></thead>
               <tbody id="weekly-report-body"><tr class="empty-row"><td colspan="8">Select a date and click Load Report</td></tr></tbody>
             </table>
           </div>
@@ -701,7 +701,7 @@
           <div class="stats stats-4" id="monthly-stats" style="margin-bottom:16px;display:none;"></div>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Activity</th><th>Section</th><th>Total</th><th>Days Logged</th><th style="color:#059669;">Total Present</th><th>Avg/Day</th><th>Attendance %</th><th style="color:#3b5bf5;">Paid</th></tr></thead>
+              <thead><tr><th>Program Name</th><th>Section</th><th>Total</th><th>Days Logged</th><th style="color:#059669;">Total Present</th><th>Avg/Day</th><th>Attendance %</th><th style="color:#3b5bf5;">Paid</th></tr></thead>
               <tbody id="monthly-report-body"><tr class="empty-row"><td colspan="8">Select a month and click Load Report</td></tr></tbody>
             </table>
           </div>
@@ -729,6 +729,14 @@
 
         <!-- Revenue -->
         <div id="report-revenue" style="display:none;">
+          <div style="margin-bottom:16px;display:flex;align-items:center;gap:12px;">
+            <label style="font-size:13px;font-weight:600;color:#374151;">Program:</label>
+            <select id="rev-program-filter" class="input" style="width:auto;" onchange="renderRevenueReport()">
+              <option value="all">All Programs</option>
+              <option value="Afterschool">Afterschool</option>
+              <option value="Saturday">Saturday</option>
+            </select>
+          </div>
           <div class="stats stats-4" style="margin-bottom:16px;">
             <div class="stat-card"><div class="stat-num" id="rev-expected" style="color:#111827;">$0</div><div class="stat-label">Total Expected</div></div>
             <div class="stat-card"><div class="stat-num" id="rev-collected" style="color:#059669;">$0</div><div class="stat-label">Collected</div></div>
@@ -742,9 +750,9 @@
             </div>
           </div>
           <div class="table-wrap">
-            <div style="padding:14px 18px;background:#fff;border-bottom:1px solid #e5e7eb;font-weight:700;font-size:14px;">Breakdown by Site / Group</div>
+            <div style="padding:14px 18px;background:#fff;border-bottom:1px solid #e5e7eb;font-weight:700;font-size:14px;">Breakdown by Program / Section</div>
             <table>
-              <thead><tr><th>Activity</th><th>Section</th><th style="text-align:right;">Students</th><th style="text-align:right;">Expected</th><th style="text-align:right;">Paid</th><th style="text-align:right;">🎫 Voucher</th><th style="text-align:right;">🎓 Scholar</th><th style="text-align:right;">👴 Senior</th><th style="text-align:right;">Collected</th><th style="text-align:right;">Outstanding</th></tr></thead>
+              <thead><tr><th>Program Name</th><th>Section</th><th style="text-align:right;">Students</th><th style="text-align:right;">Expected</th><th style="text-align:right;">Paid</th><th style="text-align:right;">🎫 Voucher</th><th style="text-align:right;">🎓 Scholar</th><th style="text-align:right;">👴 Senior</th><th style="text-align:right;">Collected</th><th style="text-align:right;">Outstanding</th></tr></thead>
               <tbody id="rev-tbody"></tbody>
             </table>
           </div>
@@ -1131,6 +1139,21 @@ function visibleCampers() {
 // ─── ADMIN TABLE ─────────────────────────────
 // Returns true if camper belongs to the current leader's assigned sites/groups
 const HH_GROUP = 'Homework Help Only';
+
+// Afterschool sub-program mapping
+const DANCE_GROUPS = new Set(['Level 1 Dance', 'Shimmer', 'Sparkle', 'Silver']);
+const DRUM_GROUPS  = new Set(['Level 1 Drum', 'Jr. Drums', 'NBU', 'EVO', 'EVE']);
+
+function displayProgram(site, group) {
+  if (site === 'Afterschool') {
+    if (DANCE_GROUPS.has(group)) return '2 Days a Week Dance';
+    if (DRUM_GROUPS.has(group))  return '2 Days a Week Drums';
+    if (group === HH_GROUP)      return 'Homework Help';
+    return 'Afterschool';
+  }
+  return site || '—';
+}
+
 function isHHLeader() {
   if (userProfile?.role !== 'leader') return false;
   const groups = userProfile.groups?.length ? userProfile.groups : (userProfile.group ? [userProfile.group] : []);
@@ -1397,8 +1420,16 @@ function normalizeRow(row) {
     } else if (['paid','tuitionpaid','ispaid','paymentstatus','paymentstatus','paidstatus'].includes(lk)) {
       const raw = String(row[k]).trim().toLowerCase();
       out.tuitionPaid = ['yes','true','1','paid','x','y','✓','✔'].includes(raw);
-    } else if (['site','location','campus','activity','program'].includes(lk)) {
+    } else if (['site','location','campus'].includes(lk)) {
       out.site = String(row[k]).trim();
+    } else if (['activity','program'].includes(lk)) {
+      const val = String(row[k]).trim();
+      // If value matches a known program name, treat as site; else it's a section (e.g. Saturday activities)
+      if (Object.keys(SITES).some(s => s.toLowerCase() === val.toLowerCase())) {
+        out.site = val;
+      } else if (!out.group) {
+        out.group = val;
+      }
     } else if (['group','groupname','class','division','team','section','sectionname'].includes(lk)) {
       out.group = String(row[k]).trim();
     }
@@ -1556,7 +1587,7 @@ function renderRosterTable() {
     <tr class="${selectedRosterIds.has(c.id) ? 'row-selected' : ''}">
       <td class="check-col"><input type="checkbox" ${selectedRosterIds.has(c.id) ? 'checked' : ''} ${isLeader && !canEdit ? 'disabled' : `onclick="toggleRosterSelect('${c.id}',this.checked)"`}></td>
       <td class="camper-name">${esc(c.name)}</td>
-      <td><span style="font-size:11px;font-weight:700;color:${siteColor(c.site)}">${esc(c.site||'—')}</span></td>
+      <td><span style="font-size:11px;font-weight:700;color:${siteColor(c.site)}">${esc(displayProgram(c.site, c.group))}</span></td>
       <td><span class="badge badge-blue">${esc(c.group||'—')}</span></td>
       <td class="hide-mobile text-gray text-sm">${esc(c.notes||'—')}</td>
       <td style="text-align:center;">
@@ -2268,7 +2299,7 @@ function renderIntensiveSection(containerId, rows, totals, isMulti) {
               const p = r.possible ? Math.round(r.present/r.possible*100) : 0;
               const avg = r.daysWithData ? (r.present/r.daysWithData).toFixed(1) : '0';
               const rowCls = r.isSub ? 'class="subtotal-row"' : '';
-              const siteLbl = r.isSub ? `<strong style="color:${siteColor(r.site)}">${esc(r.site)}</strong>` : `<span style="color:${siteColor(r.site)};font-weight:600;">${esc(r.site)}</span>`;
+              const siteLbl = r.isSub ? `<strong style="color:${siteColor(r.site)}">${esc(r.progName||r.site)}</strong>` : `<span style="color:${siteColor(r.site)};font-weight:600;">${esc(r.progName||r.site)}</span>`;
               const groupLbl = r.isSub ? `<em style="color:#6b7280;">${esc(r.group)}</em>` : esc(r.group);
               const absent = isMulti ? r.possible - r.present : r.total - r.present;
               return `<tr ${rowCls}>
@@ -2311,8 +2342,8 @@ function renderHHSection(containerId, rows, totals, isMulti) {
               const avg = r.daysWithData ? (r.present / r.daysWithData).toFixed(1) : '0';
               const rowCls = r.isSub ? 'class="subtotal-row"' : '';
               const siteLbl = r.isSub
-                ? `<strong style="color:#065f46">${esc(r.site)}</strong>`
-                : `<span style="color:#065f46;font-weight:600;">${esc(r.site)}</span>`;
+                ? `<strong style="color:#065f46">${esc(r.progName||r.site)}</strong>`
+                : `<span style="color:#065f46;font-weight:600;">${esc(r.progName||r.site)}</span>`;
               const groupLbl = r.isSub ? `<em style="color:#6b7280;">${esc(r.group)}</em>` : esc(r.group);
               const absent = isMulti ? r.possible - r.present : r.total - r.present;
               return `<tr ${rowCls}>
@@ -2382,10 +2413,10 @@ function buildReportRows(recByDate, dates) {
       const paid = campers.filter(c => c.tuitionPaid || c.tuition === 'voucher' || c.tuition === 'scholarship' || c.tuition === 'senior').length;
       const possible = isMulti ? campers.length * daysWithData : campers.length;
       sTotal += campers.length; sPresent += present; sPaid += paid; sPossible += possible;
-      targetRows.push({ site, group, total: campers.length, present, paid, possible, daysWithData, isSub: false });
+      targetRows.push({ site, group, progName: displayProgram(site, group), total: campers.length, present, paid, possible, daysWithData, isSub: false });
     }
     if (sTotal > 0) {
-      targetRows.push({ site, group:'— Site Total', total:sTotal, present:sPresent, paid:sPaid, possible:sPossible, daysWithData, isSub:true });
+      targetRows.push({ site, group:'— Site Total', progName: site, total:sTotal, present:sPresent, paid:sPaid, possible:sPossible, daysWithData, isSub:true });
       if (isIntensive) { iTotal+=sTotal; iPresent+=sPresent; iPaid+=sPaid; iPossible+=sPossible; }
       else             { gTotal+=sTotal; gPresent+=sPresent; gPaid+=sPaid; gPossible+=sPossible; }
     }
@@ -2401,7 +2432,7 @@ function buildReportRows(recByDate, dates) {
     dates.forEach(d => { hhOnlyCampers.forEach(c => { if (recByDate[d]?.[c.id]?.present) present++; }); });
     const paid = hhOnlyCampers.filter(c => c.tuitionPaid || c.tuition === 'voucher' || c.tuition === 'scholarship' || c.tuition === 'senior').length;
     const possible = isMulti ? hhOnlyCampers.length * daysWithData : hhOnlyCampers.length;
-    hhRows.push({ site: 'Afterschool', group: HH_GROUP, total: hhOnlyCampers.length, present, paid, possible, daysWithData, isSub: false });
+    hhRows.push({ site: 'Afterschool', group: HH_GROUP, progName: 'Homework Help', total: hhOnlyCampers.length, present, paid, possible, daysWithData, isSub: false });
     hhTotal += hhOnlyCampers.length; hhPresent += present; hhPaid += paid; hhPossible += possible;
   }
   if (hhCrossCampers.length > 0) {
@@ -2409,11 +2440,11 @@ function buildReportRows(recByDate, dates) {
     dates.forEach(d => { hhCrossCampers.forEach(c => { if (recByDate[d]?.[c.id]?.present) present++; }); });
     const paid = hhCrossCampers.filter(c => c.tuitionPaid || c.tuition === 'voucher' || c.tuition === 'scholarship' || c.tuition === 'senior').length;
     const possible = isMulti ? hhCrossCampers.length * daysWithData : hhCrossCampers.length;
-    hhRows.push({ site: 'Cross-enrolled', group: 'Other sections + HH', total: hhCrossCampers.length, present, paid, possible, daysWithData, isSub: false });
+    hhRows.push({ site: 'Cross-enrolled', group: 'Other sections + HH', progName: 'Cross-enrolled', total: hhCrossCampers.length, present, paid, possible, daysWithData, isSub: false });
     hhTotal += hhCrossCampers.length; hhPresent += present; hhPaid += paid; hhPossible += possible;
   }
   if (hhRows.length > 1) {
-    hhRows.push({ site: '—', group: '— HH Total', total: hhTotal, present: hhPresent, paid: hhPaid, possible: hhPossible, daysWithData, isSub: true });
+    hhRows.push({ site: '—', group: '— HH Total', progName: '—', total: hhTotal, present: hhPresent, paid: hhPaid, possible: hhPossible, daysWithData, isSub: true });
   }
   const hhTotals = { total: hhTotal, present: hhPresent, paid: hhPaid, possible: hhPossible, daysWithData };
 
@@ -2451,8 +2482,8 @@ function renderReportTable(tbodyId, rows, isMulti) {
     const avg = r.daysWithData ? (r.present/r.daysWithData).toFixed(1) : '0';
     const rowClass = r.isSub ? 'class="subtotal-row"' : '';
     const siteLbl = r.isSub
-      ? `<strong style="color:${siteColor(r.site)}">${esc(r.site)}</strong>`
-      : `<span style="color:${siteColor(r.site)};font-weight:600;">${esc(r.site)}</span>`;
+      ? `<strong style="color:${siteColor(r.site)}">${esc(r.progName||r.site)}</strong>`
+      : `<span style="color:${siteColor(r.site)};font-weight:600;">${esc(r.progName||r.site)}</span>`;
     const groupLbl = r.isSub ? `<em style="color:#6b7280;">${esc(r.group)}</em>` : esc(r.group);
     return `<tr ${rowClass}>
       <td>${siteLbl}</td>
@@ -2691,7 +2722,12 @@ function renderRevenueReport() {
   // Guard: elements might not exist if admin hasn't opened report yet
   if (!document.getElementById('rev-expected')) return;
 
-  const revCampers     = allCampers.filter(c => c.group !== HH_GROUP); // exclude HH-only from revenue
+  const revProgram = document.getElementById('rev-program-filter')?.value || 'all';
+  const revCampers = allCampers.filter(c => {
+    if (c.group === HH_GROUP) return false; // exclude HH-only from revenue
+    if (revProgram !== 'all' && c.site !== revProgram) return false;
+    return true;
+  });
   const voucherCampers = revCampers.filter(c => c.tuition === 'voucher' || c.tuition === 'scholarship' || c.tuition === 'senior');
   const payingCampers  = revCampers.filter(c => c.tuition != null && c.tuition !== 'voucher' && c.tuition !== 'scholarship' && c.tuition !== 'senior');
   const voucherCount   = voucherCampers.length;
@@ -2706,14 +2742,16 @@ function renderRevenueReport() {
   document.getElementById('rev-pct').textContent         = pct + '%';
   document.getElementById('rev-progress').style.width    = pct + '%';
 
-  // Group by site → group
+  // Group by program name → group
   const map = {};
   allCampers.forEach(c => {
     if (c.group === HH_GROUP) return; // Homework Help Only excluded from revenue
-    const site  = c.site  || '—';
+    if (revProgram !== 'all' && c.site !== revProgram) return; // filter by selected program
+    const site  = displayProgram(c.site, c.group); // use friendly program name
     const group = c.group || '—';
     const key   = site + '||' + group;
-    if (!map[key]) map[key] = { site, group, count:0, expected:0, paidCount:0, collected:0, voucherCount:0, scholarshipCount:0, seniorCount:0, vouchers:[], paying:[] };
+    const rawSite = c.site || '—'; // original site for color
+    if (!map[key]) map[key] = { site, rawSite, group, count:0, expected:0, paidCount:0, collected:0, voucherCount:0, scholarshipCount:0, seniorCount:0, vouchers:[], paying:[] };
     map[key].count++;
     if (c.tuition === 'voucher') {
       map[key].voucherCount++;
@@ -2746,7 +2784,7 @@ function renderRevenueReport() {
       </td>
     </tr>` : '';
     return `<tr>
-      <td><span style="font-size:11px;font-weight:700;color:${siteColor(r.site)}">${esc(r.site)}</span></td>
+      <td><span style="font-size:11px;font-weight:700;color:${siteColor(r.rawSite)}">${esc(r.site)}</span></td>
       <td><span class="badge badge-blue">${esc(r.group)}</span></td>
       <td style="text-align:right;">${r.count}</td>
       <td style="text-align:right;">$${r.expected.toFixed(2)}</td>
@@ -2770,8 +2808,9 @@ function renderRevenueReport() {
     <td style="text-align:right;color:#dc2626;">$${outstanding.toFixed(2)}</td>
   </tr>
   ${(() => {
-    const hhOnly = allCampers.filter(c => c.group === HH_GROUP).length;
-    const hhCross = allCampers.filter(c => c.group !== HH_GROUP && c.homeworkHelp).length;
+    const hhFilter = c => revProgram === 'all' || c.site === revProgram || c.site === 'Afterschool';
+    const hhOnly  = allCampers.filter(c => c.group === HH_GROUP && hhFilter(c)).length;
+    const hhCross = allCampers.filter(c => c.group !== HH_GROUP && c.homeworkHelp && hhFilter(c)).length;
     const hhTotal = hhOnly + hhCross;
     if (!hhTotal) return '';
     return `<tr style="background:#f0fdf4;border-top:1px solid #bbf7d0;">

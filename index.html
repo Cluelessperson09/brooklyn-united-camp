@@ -806,6 +806,7 @@ const FIREBASE_CONFIG = {
 let db, auth, secondaryApp;
 let currentUser = null, userProfile = null;
 let allCampers = [], removedCampers = [], attendanceData = {}, allUsers = [];
+let isRegistering = false; // prevents onAuthStateChanged from racing during registration
 let selectedDate = todayStr();
 let pendingRemoveId = null;
 let pendingRemoveIds = [];
@@ -842,6 +843,7 @@ function bootFirebase() {
   db.enablePersistence().catch(() => {});
   document.getElementById('config-screen').classList.add('hidden');
   auth.onAuthStateChanged(async user => {
+    if (isRegistering) return; // doRegister handles the flow itself
     if (user) {
       currentUser = user;
       await fetchUserProfile(user.uid);
@@ -909,7 +911,7 @@ function renderAdminTabs(active) {
     document.getElementById(`tab-${t.id}`).style.display = t.id === active ? '' : 'none';
   });
   if (active === 'reports') { switchReportTab('daily'); }
-  if (active === 'leaders') { setTimeout(loadEmailConfig, 50); }
+  if (active === 'leaders') { setTimeout(loadEmailConfig, 50); fetchUsers().then(() => renderLeadersTab()); }
 }
 
 function switchTab(id) { renderAdminTabs(id); }
@@ -991,9 +993,11 @@ async function doRegister() {
   hideErr('register-error');
   if (!name||!email||!pass) { showErr('register-error','All fields are required'); return; }
   if (pass.length < 6) { showErr('register-error','Password must be at least 6 characters'); return; }
+  isRegistering = true;
   try {
     const cred = await auth.createUserWithEmailAndPassword(email, pass);
-    let isFirst = true;
+    currentUser = cred.user;
+    let isFirst = false;
     try { const snap = await db.collection('users').get(); isFirst = snap.empty; } catch(_) {}
     await db.collection('users').doc(cred.user.uid).set({
       name, email,
@@ -1002,7 +1006,13 @@ async function doRegister() {
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
     toast(isFirst ? '👑 Welcome, Admin!' : 'Account created! Waiting for admin approval.');
-  } catch(e) { showErr('register-error', authMsg(e.code, e.message)); }
+    isRegistering = false;
+    await fetchUserProfile(cred.user.uid);
+    showApp();
+  } catch(e) {
+    isRegistering = false;
+    showErr('register-error', authMsg(e.code, e.message));
+  }
 }
 
 function authMsg(code, fallback) {
